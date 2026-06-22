@@ -33,6 +33,10 @@ interface Therapist {
   authorisedLocations: { location: { id: string; name: string } }[];
 }
 
+function isOnboardingComplete(t: Therapist): boolean {
+  return t.depositInvoiced;
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card className="space-y-4">
@@ -80,7 +84,9 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
   const [orgs, setOrgs] = useState<Organisation[]>([]);
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(true);
 
   const load = useCallback(async () => {
     const [tr, or] = await Promise.all([
@@ -90,6 +96,8 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     if (!tr.therapist) { router.push("/therapists"); return; }
     setT(tr.therapist);
     setOrgs(or.organisations ?? []);
+    // Collapse onboarding if already complete
+    setOnboardingOpen(!isOnboardingComplete(tr.therapist));
   }, [id, router]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -107,8 +115,13 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(t),
     });
-    if (res.ok) { setMsg({ text: "Saved successfully.", type: "success" }); await load(); }
-    else { const d = await res.json(); setMsg({ text: d.error ?? "Error saving", type: "error" }); }
+    if (res.ok) {
+      setMsg({ text: "Saved successfully.", type: "success" });
+      await load();
+    } else {
+      const d = await res.json();
+      setMsg({ text: d.error ?? "Error saving", type: "error" });
+    }
     setSaving(false);
   }
 
@@ -121,20 +134,41 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     setInviting(false);
   }
 
+  async function deleteTherapist() {
+    if (!t || !confirm(`Permanently delete ${t.name}? This cannot be undone.`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/therapists/${t.id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push(t.depositInvoiced ? "/therapists" : "/pipeline");
+    } else {
+      const d = await res.json();
+      setMsg({ text: d.error ?? "Error deleting", type: "error" });
+      setDeleting(false);
+    }
+  }
+
   if (!t) return <p className="text-muted-foreground text-sm">Loading…</p>;
+
+  const complete = isOnboardingComplete(t);
 
   return (
     <div className="space-y-4 max-w-4xl">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
+          <div className="flex items-center gap-2">
+            <button onClick={() => router.push(complete ? "/therapists" : "/pipeline")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              ← {complete ? "Therapists" : "Pipeline"}
+            </button>
+          </div>
+          <h1 className="text-xl font-semibold text-foreground mt-1">
             {t.flag && <span className="mr-2">🚩</span>}{t.name}
             {t.companyName && <span className="text-muted-foreground font-normal ml-2 text-base">({t.companyName})</span>}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t.email}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
           {t.documentsUrl && (
             <a href={t.documentsUrl} target="_blank" rel="noopener noreferrer">
               <Button variant="secondary" size="sm">📁 Documents</Button>
@@ -148,38 +182,59 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
           <Button size="sm" onClick={save} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
+          <Button size="sm" variant="danger" onClick={deleteTherapist} disabled={deleting}>
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
         </div>
       </div>
 
       {msg && <Alert variant={msg.type === "error" ? "danger" : "success"}>{msg.text}</Alert>}
 
-      {/* Onboarding checklist */}
-      <Section title="Onboarding">
-        <div className="space-y-3">
-          <DateStep label="Viewing date" value={t.viewingDate} onChange={v => update("viewingDate", v || null)} />
-          <DateStep label="Document pack sent" value={t.documentPackDate} onChange={v => update("documentPackDate", v || null)} />
-          <div className="pl-8 ml-2.5 border-l-2 border-border space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Document checks</p>
-            <CheckStep label="ID checked" checked={t.idChecked} onChange={v => update("idChecked", v)} />
-            <CheckStep label="Address checked" checked={t.addressChecked} onChange={v => update("addressChecked", v)} />
-            <CheckStep label="Accreditation checked" checked={t.accreditationChecked} onChange={v => update("accreditationChecked", v)} />
-            <CheckStep label="Insurance checked" checked={t.insuranceChecked} onChange={v => update("insuranceChecked", v)} />
-          </div>
-          <DateStep label="Documents reviewed" value={t.documentReviewDate} onChange={v => update("documentReviewDate", v || null)} />
+      {/* Onboarding checklist — collapsible */}
+      <Card className="space-y-0 p-0 overflow-hidden">
+        <button
+          onClick={() => setOnboardingOpen(o => !o)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface-muted/50 transition-colors"
+        >
           <div className="flex items-center gap-3">
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.bookingSystemInvitedAt ? "bg-primary border-primary" : "border-border"}`}>
-              {t.bookingSystemInvitedAt && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Booking system invited</p>
-              <p className="text-sm text-foreground">{t.bookingSystemInvitedAt ? new Date(t.bookingSystemInvitedAt).toLocaleDateString("en-GB") : "Not yet sent"}</p>
-            </div>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Onboarding</h2>
+            {complete && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success-bg text-primary">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                Complete
+              </span>
+            )}
           </div>
-          <CheckStep label="Key given" checked={t.keyGiven} onChange={v => update("keyGiven", v)} />
-          <CheckStep label="Key sent" checked={t.keySent} onChange={v => update("keySent", v)} />
-          <CheckStep label="Deposit invoiced" checked={t.depositInvoiced} onChange={v => update("depositInvoiced", v)} />
-        </div>
-      </Section>
+          <svg className={`w-4 h-4 text-muted-foreground transition-transform ${onboardingOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+
+        {onboardingOpen && (
+          <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+            <DateStep label="Viewing date" value={t.viewingDate} onChange={v => update("viewingDate", v || null)} />
+            <DateStep label="Document pack sent" value={t.documentPackDate} onChange={v => update("documentPackDate", v || null)} />
+            <div className="pl-8 ml-2.5 border-l-2 border-border space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Document checks</p>
+              <CheckStep label="ID checked" checked={t.idChecked} onChange={v => update("idChecked", v)} />
+              <CheckStep label="Address checked" checked={t.addressChecked} onChange={v => update("addressChecked", v)} />
+              <CheckStep label="Accreditation checked" checked={t.accreditationChecked} onChange={v => update("accreditationChecked", v)} />
+              <CheckStep label="Insurance checked" checked={t.insuranceChecked} onChange={v => update("insuranceChecked", v)} />
+            </div>
+            <DateStep label="Documents reviewed" value={t.documentReviewDate} onChange={v => update("documentReviewDate", v || null)} />
+            <div className="flex items-center gap-3">
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.bookingSystemInvitedAt ? "bg-primary border-primary" : "border-border"}`}>
+                {t.bookingSystemInvitedAt && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Booking system invited</p>
+                <p className="text-sm text-foreground">{t.bookingSystemInvitedAt ? new Date(t.bookingSystemInvitedAt).toLocaleDateString("en-GB") : "Not yet sent"}</p>
+              </div>
+            </div>
+            <CheckStep label="Key given" checked={t.keyGiven} onChange={v => update("keyGiven", v)} />
+            <CheckStep label="Key sent" checked={t.keySent} onChange={v => update("keySent", v)} />
+            <CheckStep label="Deposit invoiced" checked={t.depositInvoiced} onChange={v => update("depositInvoiced", v)} />
+          </div>
+        )}
+      </Card>
 
       {/* Contact */}
       <Section title="Contact">

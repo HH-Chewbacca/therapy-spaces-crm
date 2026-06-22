@@ -62,16 +62,15 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
 
   let body = "";
   try {
-    const reader = new MsgReader(buffer);
+    const reader = new MsgReader(arrayBuffer);
     const info = reader.getFileData();
     body = info.body ?? "";
   } catch {
     // Fallback: try treating as plain text (e.g. .eml files)
-    body = buffer.toString("utf-8");
+    body = Buffer.from(arrayBuffer).toString("utf-8");
   }
 
   const parsed = parseBody(body);

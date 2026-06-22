@@ -27,7 +27,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const { locationIds, ...fields } = body;
 
-  // Email uniqueness check
   if (fields.email) {
     const conflict = await prisma.user.findFirst({ where: { email: fields.email, id: { not: id } } });
     if (conflict) return NextResponse.json({ error: "Email already in use." }, { status: 409 });
@@ -45,4 +44,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ therapist });
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { id } = await params;
+
+  // Prevent deleting yourself
+  if (id === admin.id) return NextResponse.json({ error: "Cannot delete your own account." }, { status: 400 });
+
+  await prisma.user.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }

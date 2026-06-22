@@ -76,10 +76,10 @@ model User {
   insuranceChecked     Boolean   @default(false)
   documentReviewDate   DateTime? // set when all four checks are complete
   bookingSystemInvitedAt DateTime? // when the booking system invite was sent
-  keyGiven             Boolean   @default(false)
-  keySent              Boolean   @default(false)
+  keyGivenDate         DateTime?
+  keySentDate          DateTime?
   keyCard              String?
-  depositInvoiced      Boolean   @default(false)
+  depositInvoicedDate  DateTime?
 
   // Accreditation (reference only — no reminders)
   accreditationBody   String?
@@ -394,3 +394,4 @@ model DailySnapshot {
 
   @@index([date])
 }
+

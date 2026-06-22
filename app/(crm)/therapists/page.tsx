@@ -23,7 +23,7 @@ export default function TherapistsPage() {
     const q = search ? `?search=${encodeURIComponent(search)}` : "";
     const r = await fetch(`/api/therapists${q}`);
     const d = await r.json();
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => !!t.depositInvoicedDate));
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && !!t.depositInvoicedDate));
     setLoading(false);
   }, [search]);
 
@@ -36,14 +36,10 @@ export default function TherapistsPage() {
         <h1 className="text-xl font-semibold text-foreground">Therapists</h1>
         <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
       </div>
-
       <input type="search" placeholder="Search by name, email or company…"
         value={search} onChange={e => setSearch(e.target.value)}
         className="w-full max-w-md rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary" />
-
-      {loading ? (
-        <p className="text-muted-foreground text-sm">Loading…</p>
-      ) : (
+      {loading ? <p className="text-muted-foreground text-sm">Loading…</p> : (
         <Card className="p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface-muted text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -63,7 +59,6 @@ export default function TherapistsPage() {
                       {t.flag && <span className="mr-1">🚩</span>}
                       {t.name}
                       {t.companyName && <span className="text-muted-foreground font-normal ml-1">({t.companyName})</span>}
-                      {!t.isActive && <span className="ml-2 text-xs text-danger">(inactive)</span>}
                     </Link>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.email}</td>

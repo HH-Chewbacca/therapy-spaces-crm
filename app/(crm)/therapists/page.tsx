@@ -13,6 +13,20 @@ interface Therapist {
   authorisedLocations: { location: { id: string; name: string } }[];
 }
 
+function abbrevBranch(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("wimbledon")) return "SWIM";
+  if (n.includes("surbiton"))  return "SURB";
+  return name;
+}
+
+function branches(t: Therapist): string {
+  const names = t.primaryBranch
+    ? [t.primaryBranch.name]
+    : t.authorisedLocations.map(l => l.location.name);
+  return names.map(abbrevBranch).join(", ") || "—";
+}
+
 export default function TherapistsPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [search, setSearch] = useState("");
@@ -63,9 +77,7 @@ export default function TherapistsPage() {
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.email}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.skill ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {(t.primaryBranch?.name ?? t.authorisedLocations.map(l => l.location.name).join(", ")) || "—"}
-                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{branches(t)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.organisation?.name ?? "—"}</td>
                 </tr>
               ))}

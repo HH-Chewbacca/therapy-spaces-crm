@@ -4,10 +4,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const NAV = [
-  { href: "/therapists",    label: "Therapists" },
-  { href: "/pipeline",      label: "Pipeline" },
-  { href: "/organisations", label: "Organisations" },
-  { href: "/fanvil",        label: "Fanvil" },
+  { href: "/therapists",          label: "Therapists" },
+  { href: "/pipeline",            label: "Pipeline" },
+  { href: "/inactive",            label: "Inactive" },
+  { href: "/organisations",       label: "Organisations" },
+  { href: "/fanvil",              label: "Fanvil" },
 ];
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {

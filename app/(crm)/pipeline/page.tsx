@@ -7,7 +7,7 @@ import { Card, Alert } from "@/components/ui/Card";
 
 interface Therapist {
   id: string; name: string; email: string; phone: string | null; flag: boolean;
-  skill: string | null; companyName: string | null;
+  skill: string | null; companyName: string | null; isActive: boolean;
   viewingDate: string | null; documentPackDate: string | null;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
   keyGivenDate: string | null; keySentDate: string | null; depositInvoicedDate: string | null;
@@ -30,7 +30,7 @@ function daysSince(d: string | null): number | null {
 }
 
 function lastAction(t: Therapist): string {
-  const d = t.bookingSystemInvitedAt ?? t.documentReviewDate ?? t.documentPackDate ?? t.viewingDate;
+  const d = t.keySentDate ?? t.keyGivenDate ?? t.bookingSystemInvitedAt ?? t.documentReviewDate ?? t.documentPackDate ?? t.viewingDate;
   const n = daysSince(d);
   if (n === null) return "—";
   if (n === 0) return "Today";
@@ -69,7 +69,8 @@ export default function PipelinePage() {
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => !t.depositInvoicedDate));
+    // Pipeline = active therapists without a deposit invoiced date
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && !t.depositInvoicedDate));
     setLoading(false);
   }, []);
 
@@ -81,8 +82,7 @@ export default function PipelinePage() {
     const file = e.dataTransfer.files[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".msg") && !file.name.toLowerCase().endsWith(".eml")) {
-      setError("Please drop a .msg or .eml email file");
-      return;
+      setError("Please drop a .msg or .eml email file"); return;
     }
     setParsing(true);
     const formData = new FormData();
@@ -90,8 +90,7 @@ export default function PipelinePage() {
     const res = await fetch("/api/enquiries/parse-email", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "Failed to parse email"); setParsing(false); return; }
-    setParsed(data);
-    setParsing(false);
+    setParsed(data); setParsing(false);
   }
 
   async function createFromParsed() {
@@ -100,12 +99,7 @@ export default function PipelinePage() {
     const name = [parsed.firstName, parsed.lastName].filter(Boolean).join(" ") || "Unknown";
     const res = await fetch("/api/therapists", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        email: parsed.email ?? "",
-        phone: parsed.phone || undefined,
-        skill: parsed.therapyType || undefined,
-      }),
+      body: JSON.stringify({ name, email: parsed.email ?? "", phone: parsed.phone || undefined, skill: parsed.therapyType || undefined }),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "Failed to create therapist"); setSaving(false); return; }
@@ -128,38 +122,25 @@ export default function PipelinePage() {
           <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
         </div>
       </div>
-
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-[var(--radius)] p-6 text-center transition-colors ${
-          dragging ? "border-primary bg-success-bg" : "border-border bg-surface"
-        }`}>
-        {parsing ? (
-          <p className="text-muted-foreground text-sm">Parsing email…</p>
-        ) : (
+      <div onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)} onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-[var(--radius)] p-6 text-center transition-colors ${dragging ? "border-primary bg-success-bg" : "border-border bg-surface"}`}>
+        {parsing ? <p className="text-muted-foreground text-sm">Parsing email…</p> : (
           <>
-            <p className="text-sm text-foreground font-medium">Drop a viewing-request <code className="bg-surface-muted px-1 rounded text-xs">.msg</code> file to import an enquiry</p>
-            <p className="text-xs text-muted-foreground mt-1">Web3Forms format — fields are parsed automatically</p>
+            <p className="text-sm text-foreground font-medium">Drop a <code className="bg-surface-muted px-1 rounded text-xs">.msg</code> viewing-request to import an enquiry</p>
+            <p className="text-xs text-muted-foreground mt-1">Web3Forms format — fields parsed automatically</p>
           </>
         )}
       </div>
-
       {parsed && (
         <Card>
           <h2 className="text-sm font-semibold text-foreground mb-3">Review imported enquiry</h2>
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(parsed).filter(([k]) => k !== "rawEmail").map(([k, v]) => (
               <div key={k}>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground capitalize">
-                  {k.replace(/([A-Z])/g, " $1").trim()}
-                </label>
-                <input
-                  className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary"
-                  value={v as string}
-                  onChange={e => setParsed(p => ({ ...p!, [k]: e.target.value }))}
-                />
+                <label className="mb-1 block text-xs font-medium text-muted-foreground capitalize">{k.replace(/([A-Z])/g, " $1").trim()}</label>
+                <input className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+                  value={v as string} onChange={e => setParsed(p => ({ ...p!, [k]: e.target.value }))} />
               </div>
             ))}
           </div>
@@ -169,9 +150,7 @@ export default function PipelinePage() {
           </div>
         </Card>
       )}
-
       {error && <Alert variant="danger">{error}</Alert>}
-
       <div className="space-y-5">
         {STAGE_ORDER.map(stage => {
           const list = byStage[stage];

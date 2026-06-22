@@ -7,8 +7,7 @@ import { Card } from "@/components/ui/Card";
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
   companyName: string | null; skill: string | null; isActive: boolean;
-  flag: boolean; includeInBilling: boolean;
-  depositInvoiced: boolean;
+  flag: boolean; depositInvoicedDate: string | null;
   organisation: { id: string; name: string } | null;
   primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
@@ -24,8 +23,7 @@ export default function TherapistsPage() {
     const q = search ? `?search=${encodeURIComponent(search)}` : "";
     const r = await fetch(`/api/therapists${q}`);
     const d = await r.json();
-    // Only show fully onboarded therapists here (depositInvoiced = true)
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.depositInvoiced));
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => !!t.depositInvoicedDate));
     setLoading(false);
   }, [search]);
 
@@ -36,9 +34,7 @@ export default function TherapistsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Therapists</h1>
-        <Link href="/therapists/new">
-          <Button>+ New therapist</Button>
-        </Link>
+        <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
       </div>
 
       <input type="search" placeholder="Search by name, email or company…"

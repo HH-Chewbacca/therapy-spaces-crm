@@ -19,11 +19,13 @@ interface Therapist {
   invoiceAddress3: string | null; invoiceAddress4: string | null;
   invoicePostcode: string | null; invoiceCounty: string | null; invoiceCountry: string | null;
   notes: string | null; referredBy: string | null; flag: boolean;
+  createdAt: string;
   viewingDate: string | null; documentPackDate: string | null;
   idChecked: boolean; addressChecked: boolean;
   accreditationChecked: boolean; insuranceChecked: boolean;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
-  keyGiven: boolean; keySent: boolean; keyCard: string | null; depositInvoiced: boolean;
+  keyGivenDate: string | null; keySentDate: string | null;
+  keyCard: string | null; depositInvoicedDate: string | null;
   accreditationBody: string | null; accreditationNumber: string | null;
   clinicTelephone: string | null; clinicEmail: string | null; website: string | null;
   clinicsDaysTimes: string | null; fees: string | null; insuranceCompanies: string | null;
@@ -33,8 +35,10 @@ interface Therapist {
   authorisedLocations: { location: { id: string; name: string } }[];
 }
 
+const REFERRAL_OPTIONS = ["Website", "UKTR", "Friend", "Walk In", "Other"];
+
 function isOnboardingComplete(t: Therapist): boolean {
-  return t.depositInvoiced;
+  return !!t.depositInvoicedDate;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -61,20 +65,35 @@ function CheckStep({ label, checked, onChange }: { label: string; checked: boole
   );
 }
 
-function DateStep({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string) => void }) {
+function DateStep({ label, value, onChange, actionLabel, onAction }: {
+  label: string; value: string | null; onChange: (v: string) => void;
+  actionLabel?: string; onAction?: () => void;
+}) {
   const done = !!value;
   return (
     <div className="flex items-center gap-3">
       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "bg-primary border-primary" : "border-border"}`}>
         {done && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
       </div>
-      <div>
+      <div className="flex-1">
         <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-        <input type="date" value={value?.slice(0, 10) ?? ""} onChange={e => onChange(e.target.value)}
-          className="rounded-[var(--radius)] border border-border bg-surface px-2 py-1 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
+        <div className="flex items-center gap-2">
+          <input type="date" value={value?.slice(0, 10) ?? ""} onChange={e => onChange(e.target.value)}
+            className="rounded-[var(--radius)] border border-border bg-surface px-2 py-1 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
+          {!done && actionLabel && onAction && (
+            <button onClick={onAction}
+              className="text-xs px-2 py-1 rounded-[var(--radius)] bg-primary text-primary-foreground hover:bg-primary-hover transition-colors">
+              {actionLabel}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function TherapistDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -96,7 +115,6 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     if (!tr.therapist) { router.push("/therapists"); return; }
     setT(tr.therapist);
     setOrgs(or.organisations ?? []);
-    // Collapse onboarding if already complete
     setOnboardingOpen(!isOnboardingComplete(tr.therapist));
   }, [id, router]);
 
@@ -115,13 +133,8 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(t),
     });
-    if (res.ok) {
-      setMsg({ text: "Saved successfully.", type: "success" });
-      await load();
-    } else {
-      const d = await res.json();
-      setMsg({ text: d.error ?? "Error saving", type: "error" });
-    }
+    if (res.ok) { setMsg({ text: "Saved successfully.", type: "success" }); await load(); }
+    else { const d = await res.json(); setMsg({ text: d.error ?? "Error saving", type: "error" }); }
     setSaving(false);
   }
 
@@ -139,12 +152,29 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     setDeleting(true);
     const res = await fetch(`/api/therapists/${t.id}`, { method: "DELETE" });
     if (res.ok) {
-      router.push(t.depositInvoiced ? "/therapists" : "/pipeline");
+      router.push(t.depositInvoicedDate ? "/therapists" : "/pipeline");
     } else {
       const d = await res.json();
       setMsg({ text: d.error ?? "Error deleting", type: "error" });
       setDeleting(false);
     }
+  }
+
+  function exportSkeddaCSV() {
+    if (!t) return;
+    // Skedda key deposit CSV format: name, email, amount
+    const rows = [
+      ["Name", "Email", "Amount", "Description"],
+      [t.name, t.email, "20.00", "Key deposit"],
+    ];
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `skedda-deposit-${t.name.replace(/\s+/g, "-").toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (!t) return <p className="text-muted-foreground text-sm">Loading…</p>;
@@ -156,17 +186,16 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => router.push(complete ? "/therapists" : "/pipeline")}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              ← {complete ? "Therapists" : "Pipeline"}
-            </button>
-          </div>
-          <h1 className="text-xl font-semibold text-foreground mt-1">
+          <button onClick={() => router.push(complete ? "/therapists" : "/pipeline")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mb-1 block">
+            ← {complete ? "Therapists" : "Pipeline"}
+          </button>
+          <h1 className="text-xl font-semibold text-foreground">
             {t.flag && <span className="mr-2">🚩</span>}{t.name}
             {t.companyName && <span className="text-muted-foreground font-normal ml-2 text-base">({t.companyName})</span>}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t.email}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Added {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
           {t.documentsUrl && (
@@ -179,23 +208,18 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               {inviting ? "Sending…" : "Send invite"}
             </Button>
           )}
-          <Button size="sm" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
-          <Button size="sm" variant="danger" onClick={deleteTherapist} disabled={deleting}>
-            {deleting ? "Deleting…" : "Delete"}
-          </Button>
+          <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+          <Button size="sm" variant="danger" onClick={deleteTherapist} disabled={deleting}>{deleting ? "Deleting…" : "Delete"}</Button>
         </div>
       </div>
 
       {msg && <Alert variant={msg.type === "error" ? "danger" : "success"}>{msg.text}</Alert>}
 
-      {/* Onboarding checklist — collapsible */}
+      {/* Onboarding — collapsible */}
       <Card className="space-y-0 p-0 overflow-hidden">
         <button
           onClick={() => setOnboardingOpen(o => !o)}
-          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface-muted/50 transition-colors"
-        >
+          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface-muted/50 transition-colors">
           <div className="flex items-center gap-3">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Onboarding</h2>
             {complete && (
@@ -210,8 +234,10 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
 
         {onboardingOpen && (
           <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-            <DateStep label="Viewing date" value={t.viewingDate} onChange={v => update("viewingDate", v || null)} />
-            <DateStep label="Document pack sent" value={t.documentPackDate} onChange={v => update("documentPackDate", v || null)} />
+            <DateStep label="Viewing date" value={t.viewingDate} onChange={v => update("viewingDate", v || null)}
+              actionLabel="Today" onAction={() => update("viewingDate", today())} />
+            <DateStep label="Document pack sent" value={t.documentPackDate} onChange={v => update("documentPackDate", v || null)}
+              actionLabel="Today" onAction={() => update("documentPackDate", today())} />
             <div className="pl-8 ml-2.5 border-l-2 border-border space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Document checks</p>
               <CheckStep label="ID checked" checked={t.idChecked} onChange={v => update("idChecked", v)} />
@@ -219,19 +245,57 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               <CheckStep label="Accreditation checked" checked={t.accreditationChecked} onChange={v => update("accreditationChecked", v)} />
               <CheckStep label="Insurance checked" checked={t.insuranceChecked} onChange={v => update("insuranceChecked", v)} />
             </div>
-            <DateStep label="Documents reviewed" value={t.documentReviewDate} onChange={v => update("documentReviewDate", v || null)} />
+            <DateStep label="Documents reviewed" value={t.documentReviewDate} onChange={v => update("documentReviewDate", v || null)}
+              actionLabel="Today" onAction={() => update("documentReviewDate", today())} />
+
+            {/* Booking system invite */}
             <div className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.bookingSystemInvitedAt ? "bg-primary border-primary" : "border-border"}`}>
                 {t.bookingSystemInvitedAt && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
               </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">Booking system invited</p>
-                <p className="text-sm text-foreground">{t.bookingSystemInvitedAt ? new Date(t.bookingSystemInvitedAt).toLocaleDateString("en-GB") : "Not yet sent"}</p>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Booking system invited</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-foreground">{t.bookingSystemInvitedAt ? new Date(t.bookingSystemInvitedAt).toLocaleDateString("en-GB") : "Not yet sent"}</span>
+                  {!t.bookingSystemInvitedAt && (
+                    <button onClick={sendInvite} disabled={inviting}
+                      className="text-xs px-2 py-1 rounded-[var(--radius)] bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50">
+                      {inviting ? "Sending…" : "Send invite"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <CheckStep label="Key given" checked={t.keyGiven} onChange={v => update("keyGiven", v)} />
-            <CheckStep label="Key sent" checked={t.keySent} onChange={v => update("keySent", v)} />
-            <CheckStep label="Deposit invoiced" checked={t.depositInvoiced} onChange={v => update("depositInvoiced", v)} />
+
+            <DateStep label="Key given" value={t.keyGivenDate} onChange={v => update("keyGivenDate", v || null)}
+              actionLabel="Today" onAction={() => update("keyGivenDate", today())} />
+            <DateStep label="Key sent" value={t.keySentDate} onChange={v => update("keySentDate", v || null)}
+              actionLabel="Today" onAction={() => update("keySentDate", today())} />
+
+            {/* Deposit invoiced */}
+            <div className="flex items-center gap-3">
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.depositInvoicedDate ? "bg-primary border-primary" : "border-border"}`}>
+                {t.depositInvoicedDate && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Deposit invoiced</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input type="date" value={t.depositInvoicedDate?.slice(0, 10) ?? ""}
+                    onChange={e => update("depositInvoicedDate", e.target.value || null)}
+                    className="rounded-[var(--radius)] border border-border bg-surface px-2 py-1 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
+                  {!t.depositInvoicedDate && (
+                    <button onClick={() => update("depositInvoicedDate", today())}
+                      className="text-xs px-2 py-1 rounded-[var(--radius)] bg-primary text-primary-foreground hover:bg-primary-hover transition-colors">
+                      Today
+                    </button>
+                  )}
+                  <button onClick={exportSkeddaCSV}
+                    className="text-xs px-2 py-1 rounded-[var(--radius)] bg-surface border border-border text-foreground hover:bg-surface-muted transition-colors">
+                    ↓ £20 Skedda CSV
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </Card>
@@ -244,6 +308,9 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
           <F label="Phone"><Input value={t.phone ?? ""} onChange={e => update("phone", e.target.value)} /></F>
           <F label="Company name"><Input value={t.companyName ?? ""} onChange={e => update("companyName", e.target.value)} /></F>
           <F label="Skill / therapy type"><Input value={t.skill ?? ""} onChange={e => update("skill", e.target.value)} /></F>
+          <F label="Website"><Input type="url" placeholder="https://…" value={t.website ?? ""} onChange={e => update("website", e.target.value)} /></F>
+          <F label="Clinic telephone"><Input value={t.clinicTelephone ?? ""} onChange={e => update("clinicTelephone", e.target.value)} /></F>
+          <F label="Clinic email"><Input type="email" value={t.clinicEmail ?? ""} onChange={e => update("clinicEmail", e.target.value)} /></F>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <F label="Address line 1"><Input value={t.address1 ?? ""} onChange={e => update("address1", e.target.value)} /></F>
@@ -255,7 +322,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </Section>
 
-      {/* Organisation */}
+      {/* Organisation & Billing */}
       <Section title="Organisation & Billing">
         <div className="grid grid-cols-2 gap-4">
           <F label="Organisation">
@@ -265,6 +332,12 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
             </Select>
           </F>
           <F label="Key card number"><Input value={t.keyCard ?? ""} onChange={e => update("keyCard", e.target.value)} /></F>
+          <F label="Referred by">
+            <Select value={t.referredBy ?? ""} onChange={e => update("referredBy", e.target.value || null)}>
+              <option value="">— Not set —</option>
+              {REFERRAL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </Select>
+          </F>
         </div>
         {t.organisationId && (
           <p className="text-sm text-muted-foreground bg-surface-muted rounded-[var(--radius)] px-3 py-2">
@@ -287,7 +360,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </Section>
 
-      {/* Invoice address */}
+      {/* Invoice Address */}
       <Section title="Invoice Address">
         <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
           <input type="checkbox" checked={t.sameInvoiceAddress} onChange={e => update("sameInvoiceAddress", e.target.checked)} className="h-4 w-4 rounded border-border" />
@@ -316,12 +389,9 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </Section>
 
-      {/* Practice profile */}
+      {/* Practice Profile */}
       <Section title="Practice Profile">
         <div className="grid grid-cols-2 gap-4">
-          <F label="Clinic telephone"><Input value={t.clinicTelephone ?? ""} onChange={e => update("clinicTelephone", e.target.value)} /></F>
-          <F label="Clinic email"><Input type="email" value={t.clinicEmail ?? ""} onChange={e => update("clinicEmail", e.target.value)} /></F>
-          <F label="Website"><Input type="url" value={t.website ?? ""} onChange={e => update("website", e.target.value)} /></F>
           <F label="Clinic days/times"><Input value={t.clinicsDaysTimes ?? ""} onChange={e => update("clinicsDaysTimes", e.target.value)} /></F>
           <F label="Fees"><Input value={t.fees ?? ""} onChange={e => update("fees", e.target.value)} /></F>
           <F label="Insurance companies"><Input value={t.insuranceCompanies ?? ""} onChange={e => update("insuranceCompanies", e.target.value)} /></F>
@@ -340,13 +410,12 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       <Section title="Admin">
         <div className="grid grid-cols-2 gap-4">
           <F label="Fanvil card ID"><Input value={t.fanvilCardId ?? ""} onChange={e => update("fanvilCardId", e.target.value)} /></F>
-          <F label="Referred by"><Input value={t.referredBy ?? ""} onChange={e => update("referredBy", e.target.value)} /></F>
           <F label="OneDrive documents URL">
             <Input type="url" placeholder="https://onedrive.live.com/…" value={t.documentsUrl ?? ""} onChange={e => update("documentsUrl", e.target.value)} />
           </F>
         </div>
         <F label="Notes">
-          <textarea value={t.notes ?? ""} onChange={e => update("notes", e.target.value)} rows={3}
+          <textarea value={t.notes ?? ""} onChange={e => update("notes", e.target.value)} rows={4}
             className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
         </F>
       </Section>

@@ -10,13 +10,13 @@ interface Therapist {
   skill: string | null; companyName: string | null;
   viewingDate: string | null; documentPackDate: string | null;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
-  keyGiven: boolean; keySent: boolean; depositInvoiced: boolean;
+  keyGivenDate: string | null; keySentDate: string | null; depositInvoicedDate: string | null;
 }
 
 type Stage = "Enquiry" | "Viewed" | "Pack sent" | "Docs reviewed" | "Invited" | "Key issued";
 
 function getStage(t: Therapist): Stage {
-  if (t.keySent || t.keyGiven) return "Key issued";
+  if (t.keySentDate || t.keyGivenDate) return "Key issued";
   if (t.bookingSystemInvitedAt) return "Invited";
   if (t.documentReviewDate) return "Docs reviewed";
   if (t.documentPackDate) return "Pack sent";
@@ -69,8 +69,7 @@ export default function PipelinePage() {
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    // Pipeline = active therapists who haven't completed onboarding (depositInvoiced = false)
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => !t.depositInvoiced));
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => !t.depositInvoicedDate));
     setLoading(false);
   }, []);
 
@@ -130,7 +129,6 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Email drop zone */}
       <div
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -148,7 +146,6 @@ export default function PipelinePage() {
         )}
       </div>
 
-      {/* Parsed preview — confirm before creating therapist */}
       {parsed && (
         <Card>
           <h2 className="text-sm font-semibold text-foreground mb-3">Review imported enquiry</h2>
@@ -167,9 +164,7 @@ export default function PipelinePage() {
             ))}
           </div>
           <div className="flex gap-2 mt-4">
-            <Button onClick={createFromParsed} disabled={saving}>
-              {saving ? "Creating…" : "Add to pipeline →"}
-            </Button>
+            <Button onClick={createFromParsed} disabled={saving}>{saving ? "Creating…" : "Add to pipeline →"}</Button>
             <Button variant="secondary" onClick={() => { setParsed(null); setError(null); }}>Discard</Button>
           </div>
         </Card>
@@ -177,7 +172,6 @@ export default function PipelinePage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {/* Stage groups */}
       <div className="space-y-5">
         {STAGE_ORDER.map(stage => {
           const list = byStage[stage];

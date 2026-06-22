@@ -62,15 +62,17 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const arrayBuffer = await file.arrayBuffer();
+  // @kenjiuno/msgreader requires a Buffer, not an ArrayBuffer
+  const buffer = Buffer.from(arrayBuffer);
 
   let body = "";
   try {
-    const reader = new MsgReader(arrayBuffer);
+    const reader = new MsgReader(buffer);
     const info = reader.getFileData();
     body = info.body ?? "";
   } catch {
     // Fallback: try treating as plain text (e.g. .eml files)
-    body = Buffer.from(arrayBuffer).toString("utf-8");
+    body = buffer.toString("utf-8");
   }
 
   const parsed = parseBody(body);

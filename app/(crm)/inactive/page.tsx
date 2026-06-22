@@ -6,10 +6,24 @@ import { Card } from "@/components/ui/Card";
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
   companyName: string | null; skill: string | null; flag: boolean;
-  depositInvoicedDate: string | null;
+  isActive: boolean; depositInvoicedDate: string | null;
   organisation: { id: string; name: string } | null;
   primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
+}
+
+function abbrevBranch(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("wimbledon")) return "SWIM";
+  if (n.includes("surbiton"))  return "SURB";
+  return name;
+}
+
+function branches(t: Therapist): string {
+  const names = t.primaryBranch
+    ? [t.primaryBranch.name]
+    : t.authorisedLocations.map(l => l.location.name);
+  return names.map(abbrevBranch).join(", ") || "—";
 }
 
 export default function InactivePage() {
@@ -62,9 +76,7 @@ export default function InactivePage() {
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.email}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.skill ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {(t.primaryBranch?.name ?? t.authorisedLocations.map(l => l.location.name).join(", ")) || "—"}
-                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{branches(t)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.organisation?.name ?? "—"}</td>
                   <td className="px-4 py-2.5">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-muted text-muted-foreground">

@@ -19,10 +19,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ therapist });
 }
 
-// Fields that are NOT direct scalar columns on User — strip before Prisma update
-const NON_SCALAR = new Set([
-  "organisation", "authorisedLocations", "primaryBranch",
-  "createdAt", "updatedAt", "id", "role", "passwordHash",
+// Explicit allowlist of scalar User fields safe to update
+const ALLOWED_FIELDS = new Set([
+  "name","email","phone","isActive","companyName","skill","notes","referredBy","flag",
+  "address1","address2","address3","address4","postcode","county","country",
+  "sameInvoiceAddress","invoiceCompanyName","invoiceFirstName","invoiceSurName",
+  "invoiceEmailAddress","invoicePhoneNumber","invoiceMobileNumber",
+  "invoiceAddress1","invoiceAddress2","invoiceAddress3","invoiceAddress4",
+  "invoicePostcode","invoiceCounty","invoiceCountry",
+  "viewingDate","documentPackDate","idChecked","addressChecked",
+  "accreditationChecked","insuranceChecked","documentReviewDate",
+  "bookingSystemInvitedAt","keyGivenDate","keySentDate","keyCard","depositInvoicedDate",
+  "accreditationBody","accreditationNumber",
+  "clinicTelephone","clinicEmail","website","clinicsDaysTimes","fees",
+  "insuranceCompanies","bioText","showProfile","includeInBilling",
+  "organisationId","documentsUrl","fanvilCardId",
 ]);
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -30,32 +41,46 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
 
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
   const { locationIds, ...rest } = body;
 
-  // Strip nested/computed fields — only pass scalar columns to Prisma
+  // Only pass explicitly allowed scalar fields to Prisma
   const fields: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(rest)) {
-    if (!NON_SCALAR.has(k)) fields[k] = v;
+    if (ALLOWED_FIELDS.has(k)) fields[k] = v;
   }
 
   if (fields.email) {
-    const conflict = await prisma.user.findFirst({ where: { email: fields.email as string, id: { not: id } } });
+    const conflict = await prisma.user.findFirst({
+      where: { email: fields.email as string, id: { not: id } }
+    });
     if (conflict) return NextResponse.json({ error: "Email already in use." }, { status: 409 });
   }
 
-  const therapist = await prisma.user.update({ where: { id }, data: fields });
+  try {
+    const therapist = await prisma.user.update({ where: { id }, data: fields });
 
-  if (locationIds !== undefined) {
-    await prisma.userLocation.deleteMany({ where: { userId: id } });
-    if (locationIds.length > 0) {
-      await prisma.userLocation.createMany({
-        data: locationIds.map((locationId: string) => ({ userId: id, locationId })),
-      });
+    if (locationIds !== undefined) {
+      await prisma.userLocation.deleteMany({ where: { userId: id } });
+      if (Array.isArray(locationIds) && locationIds.length > 0) {
+        await prisma.userLocation.createMany({
+          data: (locationIds as string[]).map((locationId) => ({ userId: id, locationId })),
+        });
+      }
     }
-  }
 
-  return NextResponse.json({ therapist });
+    return NextResponse.json({ therapist });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    console.error("PATCH /api/therapists/[id] error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

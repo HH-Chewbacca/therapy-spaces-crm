@@ -8,35 +8,11 @@ interface Therapist {
   id: string; name: string; email: string; phone: string | null;
   companyName: string | null; skill: string | null; isActive: boolean;
   flag: boolean; includeInBilling: boolean;
-  viewingDate: string | null; documentPackDate: string | null;
-  documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
-  keyGiven: boolean; keySent: boolean; depositInvoiced: boolean;
-  idChecked: boolean; addressChecked: boolean;
-  accreditationChecked: boolean; insuranceChecked: boolean;
+  depositInvoiced: boolean;
   organisation: { id: string; name: string } | null;
   primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
 }
-
-function stage(t: Therapist): string {
-  if (t.depositInvoiced) return "Active";
-  if (t.keySent || t.keyGiven) return "Key issued";
-  if (t.bookingSystemInvitedAt) return "Invited";
-  if (t.documentReviewDate) return "Docs reviewed";
-  if (t.documentPackDate) return "Pack sent";
-  if (t.viewingDate) return "Viewed";
-  return "Enquiry";
-}
-
-const STAGE_COLOURS: Record<string, string> = {
-  "Active":         "bg-success-bg text-primary",
-  "Key issued":     "bg-primary/10 text-primary",
-  "Invited":        "bg-accent/10 text-accent",
-  "Docs reviewed":  "bg-warning-bg text-foreground",
-  "Pack sent":      "bg-warning-bg text-foreground",
-  "Viewed":         "bg-surface-muted text-muted-foreground",
-  "Enquiry":        "bg-danger-bg text-danger",
-};
 
 export default function TherapistsPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -48,7 +24,8 @@ export default function TherapistsPage() {
     const q = search ? `?search=${encodeURIComponent(search)}` : "";
     const r = await fetch(`/api/therapists${q}`);
     const d = await r.json();
-    setTherapists(d.therapists ?? []);
+    // Only show fully onboarded therapists here (depositInvoiced = true)
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.depositInvoiced));
     setLoading(false);
   }, [search]);
 
@@ -79,7 +56,6 @@ export default function TherapistsPage() {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Skill</th>
                 <th className="px-4 py-3">Branch</th>
-                <th className="px-4 py-3">Stage</th>
                 <th className="px-4 py-3">Organisation</th>
               </tr>
             </thead>
@@ -99,16 +75,11 @@ export default function TherapistsPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {(t.primaryBranch?.name ?? t.authorisedLocations.map(l => l.location.name).join(", ")) || "—"}
                   </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STAGE_COLOURS[stage(t)] ?? ""}`}>
-                      {stage(t)}
-                    </span>
-                  </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.organisation?.name ?? "—"}</td>
                 </tr>
               ))}
               {therapists.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No therapists found</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No therapists found</td></tr>
               )}
             </tbody>
           </table>

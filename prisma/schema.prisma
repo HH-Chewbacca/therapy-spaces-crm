@@ -1,0 +1,396 @@
+// Shared database schema for Therapy Spaces.
+// Used by both the booking system (bookings.therapyspaces.co.uk)
+// and the CRM (admin.therapyspaces.co.uk).
+// After any change: run `npx prisma db push` in the Railway console.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth / Users
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  THERAPIST
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  role         UserRole @default(THERAPIST)
+
+  // Auth
+  passwordHash String?
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // ---------------------------------------------------------------------------
+  // CRM fields (managed via admin.therapyspaces.co.uk)
+  // ---------------------------------------------------------------------------
+
+  // Contact
+  companyName   String?
+  address1      String?
+  address2      String?
+  address3      String?
+  address4      String?
+  postcode      String?
+  county        String?
+  country       String?
+  skill         String?   // therapy type / speciality
+
+  // Invoice address (used when sameInvoiceAddress = false)
+  sameInvoiceAddress  Boolean @default(true)
+  invoiceCompanyName  String?
+  invoiceFirstName    String?
+  invoiceSurName      String?
+  invoiceEmailAddress String?
+  invoicePhoneNumber  String?
+  invoiceMobileNumber String?
+  invoiceAddress1     String?
+  invoiceAddress2     String?
+  invoiceAddress3     String?
+  invoiceAddress4     String?
+  invoicePostcode     String?
+  invoiceCounty       String?
+  invoiceCountry      String?
+
+  // Onboarding lifecycle
+  viewingDate          DateTime?
+  documentPackDate     DateTime?
+  // Document review sub-steps (all four must be true before documentReviewDate is set)
+  idChecked            Boolean   @default(false)
+  addressChecked       Boolean   @default(false)
+  accreditationChecked Boolean   @default(false)
+  insuranceChecked     Boolean   @default(false)
+  documentReviewDate   DateTime? // set when all four checks are complete
+  bookingSystemInvitedAt DateTime? // when the booking system invite was sent
+  keyGiven             Boolean   @default(false)
+  keySent              Boolean   @default(false)
+  keyCard              String?
+  depositInvoiced      Boolean   @default(false)
+
+  // Accreditation (reference only — no reminders)
+  accreditationBody   String?
+  accreditationNumber String?
+
+  // Practice profile
+  clinicTelephone  String?
+  clinicEmail      String?
+  website          String?
+  clinicsDaysTimes String?
+  fees             String?
+  insuranceCompanies String?
+  bioText          String?
+  showProfile      Boolean @default(false)
+
+  // CRM metadata
+  notes      String?
+  referredBy String?
+  flag       Boolean @default(false)
+
+  // Billing
+  includeInBilling Boolean @default(true)
+  primaryBranchId  String? // FK to Location (primary clinic)
+  primaryBranch    Location? @relation("PrimaryBranch", fields: [primaryBranchId], references: [id])
+
+  // Organisation billing hierarchy (optional)
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id])
+
+  // Documents (OneDrive folder link)
+  documentsUrl String?
+
+  // Fanvil door entry matching
+  fanvilCardId String? // the 'Extra' field in Fanvil logs
+
+  // ---------------------------------------------------------------------------
+  // Relations
+  // ---------------------------------------------------------------------------
+  invites          InviteToken[]
+  passwordResets   PasswordResetToken[]
+  bookings         Booking[]
+  recurringSeries  RecurringSeries[]
+  authorisedLocations UserLocation[]
+
+  @@index([email])
+  @@index([organisationId])
+  @@index([primaryBranchId])
+}
+
+// ---------------------------------------------------------------------------
+// Organisations (billing hierarchy)
+// ---------------------------------------------------------------------------
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address1  String?
+  address2  String?
+  address3  String?
+  city      String?
+  postcode  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members User[]
+
+  @@index([name])
+}
+
+// ---------------------------------------------------------------------------
+// Enquiries (imported from Web3Forms viewing-request emails)
+// ---------------------------------------------------------------------------
+
+model Enquiry {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Parsed from the Web3Forms email
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  location    String?      // "South Wimbledon" / "Surbiton" / as submitted
+  therapyType String?
+  bookingType String?
+  message     String?
+
+  // The raw parsed email body, kept for reference
+  rawEmail    String?
+
+  // Lifecycle
+  status      String   @default("new") // new | contacted | viewed | converted | rejected
+  convertedToUserId String? // set when this enquiry is converted to a User record
+
+  @@index([email])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Fanvil door entry logs
+// ---------------------------------------------------------------------------
+
+model FanvilLog {
+  id         String   @id @default(cuid())
+  importedAt DateTime @default(now())
+
+  // Raw fields from the Fanvil CSV export
+  relay      Int
+  result     String
+  name       String       // name as recorded by Fanvil (display only)
+  cardId     String       // the 'Extra' field — used for therapist matching
+  entryType  String       // "Card", "App", etc.
+  reason     String?
+  entryTime  DateTime
+
+  // Resolved location from relay number (set during import)
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
+  @@index([entryTime])
+  @@index([cardId])
+  @@index([locationId])
+}
+
+// ---------------------------------------------------------------------------
+// Join table: which locations a therapist is permitted to book at
+// ---------------------------------------------------------------------------
+
+model UserLocation {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, locationId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Auth tokens
+// ---------------------------------------------------------------------------
+
+model InviteToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+enum ResetChannel {
+  EMAIL
+  SMS
+}
+
+model PasswordResetToken {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  channel   ResetChannel @default(EMAIL)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Locations / Rooms
+// ---------------------------------------------------------------------------
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rooms                Room[]
+  authorisedTherapists UserLocation[]
+  primaryBranchUsers   User[]         @relation("PrimaryBranch")
+  fanvilLogs           FanvilLog[]
+
+  @@index([name])
+}
+
+model RoomType {
+  id   String @id @default(cuid())
+  name String @unique
+
+  rooms Room[]
+}
+
+model Room {
+  id         String   @id @default(cuid())
+  name       String
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  roomTypeId String
+  roomType   RoomType @relation(fields: [roomTypeId], references: [id])
+  isActive   Boolean  @default(true)
+
+  hourlyRate    Int
+  rate4hrBlock  Int
+  rate8hrBlock  Int
+  rate12hrBlock Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@index([locationId])
+  @@index([roomTypeId])
+}
+
+// ---------------------------------------------------------------------------
+// Bookings
+// ---------------------------------------------------------------------------
+
+model RecurringSeries {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  untilDate DateTime
+  createdAt DateTime @default(now())
+
+  bookings Booking[]
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum BookingLogAction {
+  CREATED
+  EDITED
+  CANCELLED
+  DUPLICATED
+}
+
+model BookingLog {
+  id            String           @id @default(cuid())
+  bookingId     String
+  userId        String
+  action        BookingLogAction
+  previousState String?
+  newState      String?
+  hoursDelta    Float?
+  note          String?
+  createdAt     DateTime         @default(now())
+
+  @@index([bookingId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Booking {
+  id       String @id @default(cuid())
+  roomId   String
+  room     Room   @relation(fields: [roomId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  startsAt DateTime
+  endsAt   DateTime
+
+  status BookingStatus @default(CONFIRMED)
+
+  recurringSeriesId String?
+  recurringSeries   RecurringSeries? @relation(fields: [recurringSeriesId], references: [id], onDelete: SetNull)
+
+  gapWarningAcknowledged Boolean @default(false)
+  note                   String?
+  cachedCharge           Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId, userId, startsAt])
+  @@index([startsAt, endsAt])
+}
+
+// ---------------------------------------------------------------------------
+// Daily snapshots
+// ---------------------------------------------------------------------------
+
+model DailySnapshot {
+  id             String   @id @default(cuid())
+  date           DateTime @unique @db.Date
+  monthTotal     Float
+  hoursBooked    Float
+  hoursCancelled Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([date])
+}

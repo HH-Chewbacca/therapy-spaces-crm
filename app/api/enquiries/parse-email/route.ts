@@ -62,12 +62,12 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const arrayBuffer = await file.arrayBuffer();
-  // @kenjiuno/msgreader requires a Buffer, not an ArrayBuffer
   const buffer = Buffer.from(arrayBuffer);
 
   let body = "";
   try {
-    const reader = new MsgReader(buffer);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reader = new MsgReader(buffer as any);
     const info = reader.getFileData();
     body = info.body ?? "";
   } catch {

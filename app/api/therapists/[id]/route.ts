@@ -19,16 +19,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ therapist });
 }
 
+// Fields that are NOT direct scalar columns on User — strip before Prisma update
+const NON_SCALAR = new Set([
+  "organisation", "authorisedLocations", "primaryBranch",
+  "createdAt", "updatedAt", "id", "role", "passwordHash",
+]);
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
 
   const body = await req.json();
-  const { locationIds, ...fields } = body;
+  const { locationIds, ...rest } = body;
+
+  // Strip nested/computed fields — only pass scalar columns to Prisma
+  const fields: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(rest)) {
+    if (!NON_SCALAR.has(k)) fields[k] = v;
+  }
 
   if (fields.email) {
-    const conflict = await prisma.user.findFirst({ where: { email: fields.email, id: { not: id } } });
+    const conflict = await prisma.user.findFirst({ where: { email: fields.email as string, id: { not: id } } });
     if (conflict) return NextResponse.json({ error: "Email already in use." }, { status: 409 });
   }
 
@@ -51,7 +63,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
 
-  // Prevent deleting yourself
   if (id === admin.id) return NextResponse.json({ error: "Cannot delete your own account." }, { status: 400 });
 
   await prisma.user.delete({ where: { id } });

@@ -1,10 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-
+import { Button } from "@/components/ui/Button";
+import { Card, Alert } from "@/components/ui/Card";
 
 interface Therapist {
-  id: string; name: string; email: string; phone: string | null; flag: boolean; isActive: boolean;
+  id: string; name: string; email: string; phone: string | null; flag: boolean;
+  skill: string | null; companyName: string | null;
   viewingDate: string | null; documentPackDate: string | null;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
   keyGiven: boolean; keySent: boolean; depositInvoiced: boolean;
@@ -13,7 +16,6 @@ interface Therapist {
 type Stage = "Enquiry" | "Viewed" | "Pack sent" | "Docs reviewed" | "Invited" | "Key issued";
 
 function getStage(t: Therapist): Stage {
-  if (t.depositInvoiced) return "Key issued";
   if (t.keySent || t.keyGiven) return "Key issued";
   if (t.bookingSystemInvitedAt) return "Invited";
   if (t.documentReviewDate) return "Docs reviewed";
@@ -55,18 +57,61 @@ const STAGE_BADGE: Record<Stage, string> = {
 };
 
 export default function PipelinePage() {
+  const router = useRouter();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dragging, setDragging] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [parsed, setParsed] = useState<Record<string, string> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && !t.depositInvoiced));
+    // Pipeline = active therapists who haven't completed onboarding (depositInvoiced = false)
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => !t.depositInvoiced));
     setLoading(false);
   }, []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false); setError(null);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".msg") && !file.name.toLowerCase().endsWith(".eml")) {
+      setError("Please drop a .msg or .eml email file");
+      return;
+    }
+    setParsing(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/enquiries/parse-email", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error ?? "Failed to parse email"); setParsing(false); return; }
+    setParsed(data);
+    setParsing(false);
+  }
+
+  async function createFromParsed() {
+    if (!parsed) return;
+    setSaving(true); setError(null);
+    const name = [parsed.firstName, parsed.lastName].filter(Boolean).join(" ") || "Unknown";
+    const res = await fetch("/api/therapists", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        email: parsed.email ?? "",
+        phone: parsed.phone || undefined,
+        skill: parsed.therapyType || undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error ?? "Failed to create therapist"); setSaving(false); return; }
+    router.push(`/therapists/${data.therapist.id}`);
+  }
 
   const byStage = STAGE_ORDER.reduce<Record<Stage, Therapist[]>>((acc, s) => {
     acc[s] = therapists.filter(t => getStage(t) === s);
@@ -79,9 +124,60 @@ export default function PipelinePage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Pipeline</h1>
-        <p className="text-sm text-muted-foreground">{therapists.length} therapists in progress</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">{therapists.length} in progress</p>
+          <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
+        </div>
       </div>
 
+      {/* Email drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-[var(--radius)] p-6 text-center transition-colors ${
+          dragging ? "border-primary bg-success-bg" : "border-border bg-surface"
+        }`}>
+        {parsing ? (
+          <p className="text-muted-foreground text-sm">Parsing email…</p>
+        ) : (
+          <>
+            <p className="text-sm text-foreground font-medium">Drop a viewing-request <code className="bg-surface-muted px-1 rounded text-xs">.msg</code> file to import an enquiry</p>
+            <p className="text-xs text-muted-foreground mt-1">Web3Forms format — fields are parsed automatically</p>
+          </>
+        )}
+      </div>
+
+      {/* Parsed preview — confirm before creating therapist */}
+      {parsed && (
+        <Card>
+          <h2 className="text-sm font-semibold text-foreground mb-3">Review imported enquiry</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(parsed).filter(([k]) => k !== "rawEmail").map(([k, v]) => (
+              <div key={k}>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground capitalize">
+                  {k.replace(/([A-Z])/g, " $1").trim()}
+                </label>
+                <input
+                  className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+                  value={v as string}
+                  onChange={e => setParsed(p => ({ ...p!, [k]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button onClick={createFromParsed} disabled={saving}>
+              {saving ? "Creating…" : "Add to pipeline →"}
+            </Button>
+            <Button variant="secondary" onClick={() => { setParsed(null); setError(null); }}>Discard</Button>
+          </div>
+        </Card>
+      )}
+
+      {error && <Alert variant="danger">{error}</Alert>}
+
+      {/* Stage groups */}
       <div className="space-y-5">
         {STAGE_ORDER.map(stage => {
           const list = byStage[stage];
@@ -98,6 +194,7 @@ export default function PipelinePage() {
                     <tr>
                       <th className="px-4 py-2">Name</th>
                       <th className="px-4 py-2">Email</th>
+                      <th className="px-4 py-2">Skill</th>
                       <th className="px-4 py-2">Phone</th>
                       <th className="px-4 py-2">Last action</th>
                     </tr>
@@ -108,9 +205,11 @@ export default function PipelinePage() {
                         <td className="px-4 py-2 font-medium text-foreground">
                           <Link href={`/therapists/${t.id}`} className="hover:text-primary transition-colors">
                             {t.flag && "🚩 "}{t.name}
+                            {t.companyName && <span className="text-muted-foreground font-normal ml-1">({t.companyName})</span>}
                           </Link>
                         </td>
                         <td className="px-4 py-2 text-muted-foreground">{t.email}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{t.skill ?? "—"}</td>
                         <td className="px-4 py-2 text-muted-foreground">{t.phone ?? "—"}</td>
                         <td className="px-4 py-2 text-muted-foreground">{lastAction(t)}</td>
                       </tr>

@@ -289,9 +289,13 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
           units: "in",
           orientation: "landscape",
           colorType: "blackwhite",
+          scaleContent: true,
+          rasterize: true,
         });
-        // Print as plain text via QZ Tray
-        const printData = [{ type: "raw", format: "plain", data: lines.join("\r\n") + "\r\n" }];
+        const html = `<html><body style="margin:2mm 3mm;font-family:Arial,sans-serif;font-size:9pt;line-height:1.4;width:84mm;">
+          ${lines.map(l => `<p style="margin:0;padding:0;">${l}</p>`).join("")}
+        </body></html>`;
+        const printData = [{ type: "pixel", format: "html", flavor: "plain", data: html }];
         await qz.print(config, printData);
         await qz.websocket.disconnect();
         return;

@@ -291,8 +291,14 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
           colorType: "blackwhite",
           scaleContent: true,
           rasterize: true,
+          ignoreTransparency: true,
+          altPrinting: false,
+          encoding: null,
+          endOfDoc: "",
+          perSpool: 1,
         });
-        const html = `<html><body style="margin:2mm 3mm;font-family:Arial,sans-serif;font-size:9pt;line-height:1.4;width:84mm;">
+        // Use image/html pixel printing — QL-800 needs rasterised output
+        const html = `<html><body style="margin:2mm 3mm;font-family:Arial,sans-serif;font-size:11pt;line-height:1.5;width:82mm;height:34mm;overflow:hidden;">
           ${lines.map(l => `<p style="margin:0;padding:0;">${l}</p>`).join("")}
         </body></html>`;
         const printData = [{ type: "pixel", format: "html", flavor: "plain", data: html }];

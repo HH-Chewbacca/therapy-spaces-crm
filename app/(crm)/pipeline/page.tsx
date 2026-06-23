@@ -14,25 +14,17 @@ interface Therapist {
   createdAt: string;
 }
 
-// Stages in order - key given and key sent combined into "Key sent"
 type Stage = "Enquiry" | "Viewed" | "Pack sent" | "Docs reviewed" | "Invited" | "Key sent";
 
 const STAGE_ORDER: Stage[] = ["Enquiry", "Viewed", "Pack sent", "Docs reviewed", "Invited", "Key sent"];
 
-// Traffic light: red -> amber -> yellow -> yellow-green -> light green -> green
-const STAGE_CONFIG: Record<Stage, {
-  label: string;
-  desc: string;
-  row: string;   // table row bg
-  badge: string; // badge pill
-  dot: string;   // legend dot colour
-}> = {
-  "Enquiry":       { label: "Enquiry",       desc: "No viewing date set",          row: "bg-red-50 border-red-200",          badge: "bg-red-100 text-red-700",              dot: "bg-red-500" },
-  "Viewed":        { label: "Viewed",         desc: "Viewing date recorded",         row: "bg-orange-50 border-orange-200",     badge: "bg-orange-100 text-orange-700",        dot: "bg-orange-500" },
-  "Pack sent":     { label: "Pack sent",      desc: "Document pack sent",            row: "bg-amber-50 border-amber-200",       badge: "bg-amber-100 text-amber-700",          dot: "bg-amber-500" },
-  "Docs reviewed": { label: "Docs reviewed",  desc: "Documents checked & reviewed",  row: "bg-yellow-50 border-yellow-200",     badge: "bg-yellow-100 text-yellow-700",        dot: "bg-yellow-500" },
-  "Invited":       { label: "Invited",        desc: "Booking system invite sent",    row: "bg-lime-50 border-lime-200",         badge: "bg-lime-100 text-lime-700",            dot: "bg-lime-500" },
-  "Key sent":      { label: "Key sent",       desc: "Key issued — awaiting deposit", row: "bg-green-50 border-green-200",       badge: "bg-green-100 text-green-700",          dot: "bg-green-500" },
+const STAGE_CONFIG: Record<Stage, { label: string; desc: string; row: string; badge: string; dot: string }> = {
+  "Enquiry":       { label: "Enquiry",       desc: "No viewing date set",           row: "bg-red-50 border-red-200",       badge: "bg-red-100 text-red-700",       dot: "bg-red-500" },
+  "Viewed":        { label: "Viewed",         desc: "Viewing date recorded",         row: "bg-orange-50 border-orange-200", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
+  "Pack sent":     { label: "Pack sent",      desc: "Document pack sent",            row: "bg-amber-50 border-amber-200",   badge: "bg-amber-100 text-amber-700",   dot: "bg-amber-500" },
+  "Docs reviewed": { label: "Docs reviewed",  desc: "Documents checked & reviewed",  row: "bg-yellow-50 border-yellow-200", badge: "bg-yellow-100 text-yellow-700", dot: "bg-yellow-500" },
+  "Invited":       { label: "Invited",        desc: "Booking system invite sent",    row: "bg-lime-50 border-lime-200",     badge: "bg-lime-100 text-lime-700",     dot: "bg-lime-500" },
+  "Key sent":      { label: "Key sent",       desc: "Key issued — awaiting deposit", row: "bg-green-50 border-green-200",   badge: "bg-green-100 text-green-700",   dot: "bg-green-500" },
 };
 
 function getStage(t: Therapist): Stage {
@@ -42,6 +34,10 @@ function getStage(t: Therapist): Stage {
   if (t.documentPackDate) return "Pack sent";
   if (t.viewingDate) return "Viewed";
   return "Enquiry";
+}
+
+function graduated(t: Therapist): boolean {
+  return !!(t.keySentDate || t.keyGivenDate || t.depositInvoicedDate);
 }
 
 function daysSince(d: string | null): number | null {
@@ -72,12 +68,14 @@ export default function PipelinePage() {
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    const graduated = (t: Therapist) => !!(t.keySentDate || t.keyGivenDate || t.depositInvoicedDate);
     const list = (d.therapists ?? []).filter((t: Therapist) => t.isActive && !graduated(t));
-    // Sort by most recently added (createdAt desc)
     list.sort((a: Therapist, b: Therapist) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     setTherapists(list);
+    setLoading(false);
   }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load(); }, [load]);
 
   const filtered = search.trim()
     ? therapists.filter(t => {
@@ -88,14 +86,6 @@ export default function PipelinePage() {
           || (t.phone ?? "").includes(q);
       })
     : therapists;
-
-  // dummy to satisfy eslint - load is already memoised above
-  const _unused = null; void _unused;
-    setLoading(false);
-  }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { load(); }, [load]);
 
   async function handleDrop(e: React.DragEvent) {
     e.preventDefault(); setDragging(false); setError(null);
@@ -133,7 +123,9 @@ export default function PipelinePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Pipeline</h1>
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground">{filtered.length}{search ? ` of ${therapists.length}` : ""} in progress</p>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length}{search ? ` of ${therapists.length}` : ""} in progress
+          </p>
           <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
         </div>
       </div>
@@ -147,7 +139,7 @@ export default function PipelinePage() {
             <div key={stage} className="flex items-center gap-1.5">
               <span className={`w-3 h-3 rounded-full shrink-0 ${cfg.dot}`} />
               <span className="text-xs text-foreground font-medium">{cfg.label}</span>
-              <span className="text-xs text-muted-foreground">— {cfg.desc}</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">— {cfg.desc}</span>
               {count > 0 && <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cfg.badge}`}>{count}</span>}
             </div>
           );
@@ -192,7 +184,7 @@ export default function PipelinePage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {/* Single flat table sorted by createdAt desc, colour-coded by stage */}
+      {/* Flat table sorted by createdAt desc */}
       <Card className="p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-surface-muted text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -233,7 +225,9 @@ export default function PipelinePage() {
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{search ? "No results found" : "No therapists in the pipeline"}</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                {search ? "No results found" : "No therapists in the pipeline"}
+              </td></tr>
             )}
           </tbody>
         </table>

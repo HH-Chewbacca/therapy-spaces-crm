@@ -27,7 +27,7 @@ const ALLOWED_FIELDS = new Set([
   "invoiceAddress1","invoiceAddress2","invoiceAddress3","invoiceAddress4",
   "invoicePostcode","invoiceCounty","invoiceCountry",
   "viewingDate","documentPackDate","idChecked","addressChecked",
-  "accreditationChecked","insuranceChecked","stlStatus","documentReviewDate",
+  "accreditationChecked","insuranceChecked","stlStatus","stlRequired","documentReviewDate",
   "bookingSystemInvitedAt","keyGivenDate","keySentDate","keyCard","depositInvoicedDate",
   "accreditationBody","accreditationNumber",
   "clinicTelephone","clinicEmail","website","clinicsDaysTimes","fees",

@@ -66,8 +66,6 @@ function detectStlRequired(skill: string | null): boolean {
   return STL_KEYWORDS.some(k => s.includes(k));
 }
 
-
-
 function isOnboardingComplete(t: Therapist): boolean {
   return !!t.depositInvoicedDate;
 }

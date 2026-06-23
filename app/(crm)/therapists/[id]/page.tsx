@@ -255,33 +255,27 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     if (!win) return;
     // Brother QL-800: 89mm wide x 36mm tall, fed landscape
     // Font size tuned so ~5 lines fit in 36mm height
+    // Label roll is 29mm x 90mm (fed portrait, text runs along the 90mm length)
     win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
 <style>
   @page {
-    size: 89mm 36mm;
+    size: 90mm 29mm;
     margin: 0;
   }
-  html {
-    width: 89mm;
-    height: 36mm;
-    margin: 0;
-    padding: 0;
-  }
-  body {
-    width: 89mm;
-    height: 36mm;
-    margin: 0;
-    padding: 2.5mm 3mm;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 8.5pt;
-    line-height: 1.25;
-    color: #000;
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 90mm;
+    height: 29mm;
     overflow: hidden;
   }
-  p { margin: 0; padding: 0; }
-  @media print {
-    body { width: 89mm; height: 36mm; }
+  body {
+    padding: 2mm 3mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    line-height: 1.3;
+    color: #000;
   }
+  p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style></head><body>
 ${lines.map((l) => `<p>${l}</p>`).join("")}
 <script>setTimeout(function(){window.print();},150);<\/script>

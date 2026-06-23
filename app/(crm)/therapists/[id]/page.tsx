@@ -281,10 +281,9 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               </div>
             </div>
 
-            <DateStep label="Key given" value={t.keyGivenDate} onChange={v => update("keyGivenDate", v || null)}
-              actionLabel="Today" onAction={() => update("keyGivenDate", today())} />
-            <DateStep label="Key sent" value={t.keySentDate} onChange={v => update("keySentDate", v || null)}
-              actionLabel="Today" onAction={() => update("keySentDate", today())} />
+            <DateStep label="Key sent" value={t.keySentDate ?? t.keyGivenDate}
+              onChange={v => { update("keySentDate", v || null); update("keyGivenDate", v || null); }}
+              actionLabel="Today" onAction={() => { update("keySentDate", today()); update("keyGivenDate", today()); }} />
 
             {/* Deposit invoiced */}
             <div className="flex items-center gap-3">
@@ -436,4 +435,5 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     </div>
   );
 }
+
 

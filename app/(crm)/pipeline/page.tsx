@@ -11,6 +11,7 @@ interface Therapist {
   viewingDate: string | null; documentPackDate: string | null;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
   keyGivenDate: string | null; keySentDate: string | null; depositInvoicedDate: string | null;
+  createdAt: string;
 }
 
 type Stage = "Enquiry" | "Viewed" | "Pack sent" | "Docs reviewed" | "Invited" | "Key issued";
@@ -24,6 +25,15 @@ function getStage(t: Therapist): Stage {
   return "Enquiry";
 }
 
+function latestDate(t: Therapist): number {
+  const dates = [
+    t.keySentDate, t.keyGivenDate, t.bookingSystemInvitedAt,
+    t.documentReviewDate, t.documentPackDate, t.viewingDate, t.createdAt,
+  ];
+  const times = dates.map(d => d ? new Date(d).getTime() : 0);
+  return Math.max(...times);
+}
+
 function daysSince(d: string | null): number | null {
   if (!d) return null;
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
@@ -35,7 +45,7 @@ function lastAction(t: Therapist): string {
   if (n === null) return "—";
   if (n === 0) return "Today";
   if (n === 1) return "Yesterday";
-  return `${n} days ago`;
+  return `${n}d ago`;
 }
 
 const STAGE_ORDER: Stage[] = ["Enquiry", "Viewed", "Pack sent", "Docs reviewed", "Invited", "Key issued"];
@@ -69,8 +79,10 @@ export default function PipelinePage() {
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    // Pipeline = active therapists without a deposit invoiced date
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && !t.depositInvoicedDate));
+    const list = (d.therapists ?? []).filter((t: Therapist) => t.isActive && !t.depositInvoicedDate);
+    // Sort by most recent action descending
+    list.sort((a: Therapist, b: Therapist) => latestDate(b) - latestDate(a));
+    setTherapists(list);
     setLoading(false);
   }, []);
 

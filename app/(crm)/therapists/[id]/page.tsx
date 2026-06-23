@@ -256,10 +256,10 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
 <style>
-  @page { size: 90mm 29mm landscape; margin: 0; }
+  @page { size: 90mm 38mm landscape; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 90mm; height: 29mm; overflow: hidden; background: white; display: inline-block; }
-  body { padding: 2mm 3mm; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.35; color: #000; }
+  html, body { width: 90mm; height: 38mm; overflow: hidden; background: white; display: inline-block; }
+  body { padding: 5mm 3mm 2mm 5mm; font-family: Arial, Helvetica, sans-serif; font-size: 13.5pt; line-height: 1.35; color: #000; }
   p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style></head><body>
 ${lines.map(l => `<p>${l}</p>`).join("")}

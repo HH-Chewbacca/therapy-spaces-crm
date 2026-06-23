@@ -1,3 +1,4 @@
+import { LOGO_DATA_URI, LOGO_BASE64 } from "./logo";
 /**
  * Email sending abstraction.
  *
@@ -164,6 +165,7 @@ Comparison — same point in time:
 interface Attachment {
   filename: string;
   content: string; // base64
+  content_id?: string; // set for inline (cid:) images
 }
 
 async function sendViaResendWithAttachments(params: SendEmailParams & { attachments?: Attachment[] }): Promise<void> {
@@ -178,7 +180,7 @@ async function sendViaResendWithAttachments(params: SendEmailParams & { attachme
     text: params.text,
   };
   if (params.attachments?.length) {
-    body.attachments = params.attachments.map(a => ({ filename: a.filename, content: a.content }));
+    body.attachments = params.attachments.map(a => a.content_id ? { filename: a.filename, content: a.content, content_id: a.content_id } : { filename: a.filename, content: a.content });
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -197,8 +199,10 @@ export function buildInductionEmailHtml(params: {
   branches: string[];
   stlRequired: boolean;
   keyCardAlreadyIssued: boolean;
+  logoSrc?: string;
 }): string {
   const { name, branches, stlRequired, keyCardAlreadyIssued } = params;
+  const logoSrc = params.logoSrc ?? LOGO_DATA_URI;
   const firstName = name.split(" ")[0];
   const branchList = branches.join(" and ");
   const stlBullet = stlRequired
@@ -239,7 +243,7 @@ Director</p>
 <table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
   <tr>
     <td style="vertical-align:top">
-      <img src="https://admin.therapyspaces.co.uk/logo.jpg" alt="Therapy Spaces" width="200" style="display:block;margin-bottom:8px"/>
+      <img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin-bottom:8px"/>
       <div style="font-family:Arial,sans-serif;font-size:13px;color:#444">
         t: 07710 132 221<br/>
         e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
@@ -274,7 +278,11 @@ export async function sendInductionEmail(params: {
     ? `Once we've received these, we can arrange access to our online room booking system.`
     : `Once we've received these, we can arrange access to our online room booking system and arrange to get a ${accessPhrase} to you.`;
 
-  const html = buildInductionEmailHtml({ name, branches, stlRequired, keyCardAlreadyIssued });
+  const html = buildInductionEmailHtml({ name, branches, stlRequired, keyCardAlreadyIssued, logoSrc: "cid:tslogo" });
+  const allAttachments = [
+    ...params.attachments,
+    { filename: "logo.jpg", content: LOGO_BASE64, content_id: "tslogo" },
+  ];
 
   const text = `Dear ${firstName},
 
@@ -308,7 +316,7 @@ w: www.therapyspaces.co.uk`;
       subject: "Therapy Spaces Induction Pack",
       html,
       text,
-      attachments: params.attachments,
+      attachments: allAttachments,
     });
   } else {
     console.log("---- INDUCTION EMAIL (dev mode) ----");

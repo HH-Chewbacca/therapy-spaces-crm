@@ -236,18 +236,18 @@ export function buildInductionEmailHtml(params: {
 
 <p>Please let me know if you have any questions and we look forward to welcoming you to the clinic.</p>
 
-<p>Best regards,</p>
+<p style="margin:0 0 16px 0">Best regards,</p>
 
-<p><strong>Peter Strong</strong><br/>
+<p style="margin:0 0 16px 0"><strong>Peter Strong</strong><br/>
 Managing Director</p>
 
-<div style="font-family:Arial,sans-serif;font-size:13px;color:#444;margin-top:12px">
-  t: 07710 132 221<br/>
-  e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
-  w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
-</div>
+<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#444">
+  t:&nbsp;&nbsp;07710 132 221<br/>
+  e:&nbsp;&nbsp;<a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
+  w:&nbsp;&nbsp;<a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
+</p>
 
-<img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin-top:16px"/>
+<img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin:0"/>
 `;
 }
 

@@ -242,7 +242,7 @@ Director</p>
 <table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
   <tr>
     <td style="padding-right:12px;vertical-align:middle">
-      <img src="https://www.therapyspaces.co.uk/images/logo.png" alt="Therapy Spaces" width="48" style="display:block"/>
+      <img src="https://admin.therapyspaces.co.uk/logo.jpg" alt="Therapy Spaces" width="48" style="display:block"/>
     </td>
     <td style="vertical-align:middle;font-family:Arial,sans-serif;font-size:13px;color:#444">
       <strong style="color:#222">Therapy Spaces</strong><br/>

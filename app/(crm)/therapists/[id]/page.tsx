@@ -90,6 +90,32 @@ function CheckStep({ label, checked, onChange }: { label: string; checked: boole
         {checked && <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
       </div>
       <span className="text-sm text-foreground">{label}</span>
+      {/* Induction pack preview modal */}
+      {inductionPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-surface rounded-[var(--radius)] shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Induction pack preview</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">To: {inductionPreview.to} · Branches: {inductionPreview.branches.join(", ")}</p>
+              </div>
+              <button onClick={() => setInductionPreview(null)} className="text-muted-foreground hover:text-foreground text-lg leading-none">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div
+                className="prose prose-sm max-w-none text-foreground"
+                dangerouslySetInnerHTML={{ __html: inductionPreview.html }}
+              />
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+              <Button variant="secondary" size="sm" onClick={() => setInductionPreview(null)}>Cancel</Button>
+              <Button size="sm" onClick={sendInductionPack} disabled={sendingInduction}>
+                {sendingInduction ? "Sending…" : "✉️ Send now"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -142,6 +168,8 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [sendingInduction, setSendingInduction] = useState(false);
+  const [inductionPreview, setInductionPreview] = useState<{ html: string; to: string; branches: string[] } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(true);
@@ -211,12 +239,27 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     setInviting(false);
   }
 
+  async function previewInductionPack() {
+    if (!t) return;
+    setPreviewLoading(true); setMsg(null);
+    const res = await fetch(`/api/therapists/${t.id}/induction/preview`);
+    if (res.ok) {
+      const d = await res.json();
+      setInductionPreview(d);
+    } else {
+      const d = await res.json();
+      setMsg({ text: d.error ?? "Error loading preview", type: "error" });
+    }
+    setPreviewLoading(false);
+  }
+
   async function sendInductionPack() {
-    if (!t || !confirm(`Send induction pack to ${t.email}?`)) return;
+    if (!t) return;
     setSendingInduction(true); setMsg(null);
     const res = await fetch(`/api/therapists/${t.id}/induction`, { method: "POST" });
     if (res.ok) {
       const d = await res.json();
+      setInductionPreview(null);
       setMsg({ text: `Induction pack sent for ${d.branches.join(" & ")}.`, type: "success" });
       await load();
     } else {
@@ -319,8 +362,8 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
             </Button>
           )}
           {!complete && (
-            <Button variant="secondary" size="sm" onClick={sendInductionPack} disabled={sendingInduction}>
-              {sendingInduction ? "Sending…" : "📋 Induction pack"}
+            <Button variant="secondary" size="sm" onClick={previewInductionPack} disabled={previewLoading || sendingInduction}>
+              {previewLoading ? "Loading…" : "📋 Induction pack"}
             </Button>
           )}
           <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>

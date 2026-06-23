@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { detectStlRequired } from "@/lib/stl";
 import { buildInductionEmailHtml } from "@/lib/email";
+import { LOGO_DATA_URI } from "@/lib/logo";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     branches,
     stlRequired: (therapist.stlRequired || detectStlRequired(therapist.skill)),
     keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate),
+    logoSrc: LOGO_DATA_URI,
   });
 
   return NextResponse.json({ html, to: therapist.email, branches });

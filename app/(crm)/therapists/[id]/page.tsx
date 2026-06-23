@@ -19,7 +19,7 @@ interface Therapist {
   invoiceAddress1: string | null; invoiceAddress2: string | null;
   invoiceAddress3: string | null; invoiceAddress4: string | null;
   invoicePostcode: string | null; invoiceCounty: string | null; invoiceCountry: string | null;
-  notes: string | null; referredBy: string | null; flag: boolean;
+  notes: string | null; referredBy: string | null; flag: boolean; stlRequired: boolean;
   createdAt: string;
   viewingDate: string | null; documentPackDate: string | null;
   idChecked: boolean; addressChecked: boolean;
@@ -38,6 +38,35 @@ interface Therapist {
 }
 
 const REFERRAL_OPTIONS = ["Website", "UKTR", "Friend", "Walk In", "Other"];
+
+// Keywords that indicate STL is likely required (from London Local Authorities Act A-Z list)
+const STL_KEYWORDS = [
+  "acupressure","acupuncture","acupuncturist","aesthet","aromatherapy","ayurvedic",
+  "body massage","body piercing","body talk","body wrap","bowen","champissage",
+  "chiropody","chiropractic","chiropractor","colour therapy","craniosacral","cryosauna",
+  "deep tissue","dermal filler","dry needling","eft","electrolysis","electrocautery",
+  "endermologie","faradism","fibroblast","filler","floatation","foot detox","galvanism",
+  "gyratory","halotherapy","high frequency","holistic massage","hot stone","hydrotherapy",
+  "indian head","infra red","infrared","infusion","ipl","kirlian","korean hand",
+  "laser","lipo","lymphatic drainage","manicure","manual lymphatic","marma",
+  "massage","metamorphic","micro current","microblading","micropigmentation","moxibustion",
+  "myofascial","naet","nail extension","neuroskeletal","no hands massage","osteopath",
+  "osteomyology","oxygen therapy","ozone sauna","pedicure","permanent make","permanent makeup",
+  "physiotherap","physiotherapy","plasma","podiatry","polarity therapy","prp",
+  "qi gong","radio frequency","reflexolog","reiki","rolfing","roll shaper","sauna",
+  "scenar","semi permanent","shiatsu","soft tissue","spmu","sports massage","sports therapy",
+  "steam","stone therapy","swedish massage","tapas acupressure","tattoo","thai massage",
+  "thalassotherapy","thermavein","tongue tie","tui na","tui-na","ultrasonic","ultra sonic",
+  "ultra violet","uv tanning",
+];
+
+function detectStlRequired(skill: string | null): boolean {
+  if (!skill) return false;
+  const s = skill.toLowerCase();
+  return STL_KEYWORDS.some(k => s.includes(k));
+}
+
+
 
 function isOnboardingComplete(t: Therapist): boolean {
   return !!t.depositInvoicedDate;
@@ -397,7 +426,27 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
           <F label="Email"><Input type="email" value={t.email} onChange={e => update("email", e.target.value)} /></F>
           <F label="Phone"><Input value={t.phone ?? ""} onChange={e => update("phone", e.target.value)} /></F>
           <F label="Company name"><Input value={t.companyName ?? ""} onChange={e => update("companyName", e.target.value)} /></F>
-          <F label="Skill / therapy type"><Input value={t.skill ?? ""} onChange={e => update("skill", e.target.value)} /></F>
+          <div>
+            <Label>Skill / therapy type</Label>
+            <div className="flex items-center gap-2">
+              <Input value={t.skill ?? ""} onChange={e => {
+                update("skill", e.target.value);
+                // Auto-detect STL requirement from skill
+                update("stlRequired", detectStlRequired(e.target.value));
+              }} />
+            </div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground">
+                <input type="checkbox" checked={t.stlRequired}
+                  onChange={e => update("stlRequired", e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-border text-primary" />
+                STL required
+              </label>
+              {t.stlRequired && (
+                <span className="text-xs text-amber-600 font-medium">⚠️ Special treatment licence needed</span>
+              )}
+            </div>
+          </div>
           <F label="Website"><Input type="url" placeholder="https://…" value={t.website ?? ""} onChange={e => update("website", e.target.value)} /></F>
           <F label="Clinic telephone"><Input value={t.clinicTelephone ?? ""} onChange={e => update("clinicTelephone", e.target.value)} /></F>
           <F label="Clinic email"><Input type="email" value={t.clinicEmail ?? ""} onChange={e => update("clinicEmail", e.target.value)} /></F>

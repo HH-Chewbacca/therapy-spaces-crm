@@ -147,6 +147,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(true);
+  const [dirty, setDirty] = useState(false);
 
   const load = useCallback(async () => {
     const [tr, or, lr] = await Promise.all([
@@ -165,23 +166,34 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     setLocations(lr.locations ?? []);
     setSelectedLocationIds(tr.therapist.authorisedLocations.map((l: { location: { id: string } }) => l.location.id));
     setOnboardingOpen(!isOnboardingComplete(tr.therapist));
+    setDirty(false);
   }, [id, router]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    function handler(e: BeforeUnloadEvent) {
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    }
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
   function update<K extends keyof Therapist>(field: K, value: Therapist[K]) {
     setT(prev => prev ? { ...prev, [field]: value } : prev);
+    setDirty(true);
   }
 
   function toggleLocation(locId: string) {
     setSelectedLocationIds(prev =>
       prev.includes(locId) ? prev.filter(x => x !== locId) : [...prev, locId]
     );
+    setDirty(true);
   }
 
-  async function save() {
-    if (!t) return;
+  async function save(): Promise<boolean> {
+    if (!t) return false;
     setSaving(true); setMsg(null);
 
     const DATE_FIELDS = [
@@ -199,9 +211,30 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (res.ok) { setMsg({ text: "Saved successfully.", type: "success" }); await load(); }
+    let ok = false;
+    if (res.ok) { setMsg({ text: "Saved successfully.", type: "success" }); await load(); ok = true; }
     else { const d = await res.json(); setMsg({ text: d.error ?? "Error saving", type: "error" }); }
     setSaving(false);
+    return ok;
+  }
+
+  // If there are unsaved edits, offer to save them so the action uses the latest data.
+  async function ensureSaved(actionLabel: string): Promise<boolean> {
+    if (!dirty) return true;
+    if (!confirm(`You have unsaved changes. Save them so the ${actionLabel} uses the latest details?`)) return false;
+    return await save();
+  }
+
+  // Navigation with an unsaved-changes prompt.
+  async function navigateAway(dest: string) {
+    if (dirty) {
+      const doSave = confirm("You have unsaved changes.\n\nOK = save and leave\nCancel = leave without saving");
+      if (doSave) {
+        const ok = await save();
+        if (!ok) return; // save failed — stay on the page
+      }
+    }
+    router.push(dest);
   }
 
   async function sendInvite() {
@@ -215,6 +248,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
 
   async function previewInductionPack() {
     if (!t) return;
+    if (!(await ensureSaved("induction pack"))) return;
     setPreviewLoading(true); setMsg(null);
     const res = await fetch(`/api/therapists/${t.id}/induction/preview`);
     if (res.ok) {
@@ -258,6 +292,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
 
   async function printAddressLabel() {
     if (!t) return;
+    if (!(await ensureSaved("label"))) return;
     const town = [t.address3, t.postcode].filter(Boolean).join("  ");
     const lines = [
       t.name,
@@ -309,7 +344,7 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <button onClick={() => router.push(complete ? "/therapists" : "/pipeline")}
+          <button onClick={() => navigateAway(complete ? "/therapists" : "/pipeline")}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors mb-1 block">
             ← {complete ? "Therapists" : "Pipeline"}
           </button>

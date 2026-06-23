@@ -251,15 +251,47 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       t.county,
     ].filter(Boolean).join("\n");
 
-    const win = window.open("", "_blank", "width=400,height=300");
+    const win = window.open("", "_blank", "width=500,height=400");
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>Label - ${t.name}</title>
 <style>
-  @page { margin: 0; size: 89mm 36mm; }
-  body { margin: 4mm; font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; }
-  pre { margin: 0; font-family: inherit; font-size: inherit; white-space: pre-wrap; }
+  @page {
+    margin: 0;
+    size: 89mm 36mm landscape;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    width: 89mm;
+    height: 36mm;
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  body {
+    padding: 3mm 4mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    line-height: 1.35;
+    color: #000;
+  }
+  pre {
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  @media print {
+    html, body { width: 89mm; height: 36mm; }
+  }
 </style></head><body><pre>${lines}</pre>
-<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+<script>
+  window.onload = function() {
+    // Small delay to ensure rendering before print dialog
+    setTimeout(function() { window.print(); }, 200);
+  };
+<\/script></body></html>`);
     win.document.close();
   }
 

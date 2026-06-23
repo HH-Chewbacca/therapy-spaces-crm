@@ -128,10 +128,24 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
   async function save() {
     if (!t) return;
     setSaving(true); setMsg(null);
+
+    // Ensure date-only strings get a time component so Prisma accepts them as ISO-8601
+    const DATE_FIELDS = [
+      "viewingDate","documentPackDate","documentReviewDate",
+      "bookingSystemInvitedAt","keyGivenDate","keySentDate","depositInvoicedDate",
+    ] as const;
+    const payload = { ...t } as Record<string, unknown>;
+    for (const f of DATE_FIELDS) {
+      const v = payload[f];
+      if (typeof v === "string" && v.length === 10) {
+        payload[f] = v + "T00:00:00.000Z";
+      }
+    }
+
     const res = await fetch(`/api/therapists/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(t),
+      body: JSON.stringify(payload),
     });
     if (res.ok) { setMsg({ text: "Saved successfully.", type: "success" }); await load(); }
     else { const d = await res.json(); setMsg({ text: d.error ?? "Error saving", type: "error" }); }
@@ -422,3 +436,4 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     </div>
   );
 }
+

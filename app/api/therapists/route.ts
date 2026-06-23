@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
           { companyName: { contains: search, mode: "insensitive" } },
+          { skill: { contains: search, mode: "insensitive" } },
         ]
       } : {}),
     },
@@ -38,7 +39,6 @@ const createSchema = z.object({
   phone: z.string().optional(),
   companyName: z.string().optional(),
   skill: z.string().optional(),
-  locationIds: z.array(z.string()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,22 +47,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Invalid data", details: parsed.error.issues }, { status: 400 });
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  const { name, email, phone, companyName, skill } = parsed.data;
+
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
   if (existing) return NextResponse.json({ error: "A user with this email already exists." }, { status: 409 });
 
-  const { locationIds, ...fields } = parsed.data;
   const therapist = await prisma.user.create({
-    data: {
-      ...fields,
-      role: "THERAPIST",
-      ...(locationIds?.length ? {
-        authorisedLocations: {
-          create: locationIds.map((locationId) => ({ locationId })),
-        }
-      } : {}),
-    },
+    data: { name, email, phone, companyName, skill, role: "THERAPIST" },
   });
 
   return NextResponse.json({ therapist }, { status: 201 });

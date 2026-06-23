@@ -24,7 +24,7 @@ interface Therapist {
   idChecked: boolean; addressChecked: boolean;
   accreditationChecked: boolean; insuranceChecked: boolean;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
-  keyGivenDate: string | null; keySentDate: string | null;
+  keyGivenDate: string | null; keySentDate: string | null; stlStatus: string | null;
   keyCard: string | null; depositInvoicedDate: string | null;
   accreditationBody: string | null; accreditationNumber: string | null;
   clinicTelephone: string | null; clinicEmail: string | null; website: string | null;
@@ -258,6 +258,27 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               <CheckStep label="Address checked" checked={t.addressChecked} onChange={v => update("addressChecked", v)} />
               <CheckStep label="Accreditation checked" checked={t.accreditationChecked} onChange={v => update("accreditationChecked", v)} />
               <CheckStep label="Insurance checked" checked={t.insuranceChecked} onChange={v => update("insuranceChecked", v)} />
+              <div className="flex items-center gap-3 pt-1">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  t.stlStatus === "STL held" || t.stlStatus === "Exempt"
+                    ? "bg-primary border-primary" : "border-border"
+                }`}>
+                  {(t.stlStatus === "STL held" || t.stlStatus === "Exempt") && (
+                    <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Special treatment licence</p>
+                  <select
+                    value={t.stlStatus ?? "Not required"}
+                    onChange={e => update("stlStatus", e.target.value)}
+                    className="rounded-[var(--radius)] border border-border bg-surface px-2 py-1 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+                    <option value="Not required">Not required</option>
+                    <option value="STL held">STL held</option>
+                    <option value="Exempt">Exempt</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <DateStep label="Documents reviewed" value={t.documentReviewDate} onChange={v => update("documentReviewDate", v || null)}
               actionLabel="Today" onAction={() => update("documentReviewDate", today())} />

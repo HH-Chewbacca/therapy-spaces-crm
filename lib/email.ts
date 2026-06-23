@@ -238,14 +238,13 @@ Director</p>
 
 <table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
   <tr>
-    <td style="padding-right:12px;vertical-align:middle">
-      <img src="https://admin.therapyspaces.co.uk/logo.jpg" alt="Therapy Spaces" width="48" style="display:block"/>
-    </td>
-    <td style="vertical-align:middle;font-family:Arial,sans-serif;font-size:13px;color:#444">
-      <strong style="color:#222">Therapy Spaces</strong><br/>
-      t: 07710 132 221<br/>
-      e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
-      w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
+    <td style="vertical-align:top">
+      <img src="https://admin.therapyspaces.co.uk/logo.jpg" alt="Therapy Spaces" width="200" style="display:block;margin-bottom:8px"/>
+      <div style="font-family:Arial,sans-serif;font-size:13px;color:#444">
+        t: 07710 132 221<br/>
+        e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
+        w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
+      </div>
     </td>
   </tr>
 </table>

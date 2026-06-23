@@ -160,3 +160,139 @@ Comparison — same point in time:
     html,
   });
 }
+
+interface Attachment {
+  filename: string;
+  content: string; // base64
+}
+
+async function sendViaResendWithAttachments(params: SendEmailParams & { attachments?: Attachment[] }): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.EMAIL_FROM || "enquiries@therapyspaces.co.uk";
+
+  const body: Record<string, unknown> = {
+    from,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+  };
+  if (params.attachments?.length) {
+    body.attachments = params.attachments.map(a => ({ filename: a.filename, content: a.content }));
+  }
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const bodyText = await res.text();
+    throw new Error(`Resend email failed: ${res.status} ${bodyText}`);
+  }
+}
+
+export async function sendInductionEmail(params: {
+  to: string;
+  name: string;
+  branches: string[]; // e.g. ["Surbiton"] or ["South Wimbledon"] or both
+  skill: string | null;
+  stlStatus: string | null;
+  keyCardAlreadyIssued: boolean;
+  attachments: Attachment[];
+}): Promise<void> {
+  const { name, branches, skill, stlStatus, keyCardAlreadyIssued } = params;
+  const firstName = name.split(" ")[0];
+  const branchList = branches.join(" and ");
+
+  const stlBullet = (stlStatus === "STL held" || stlStatus === "Exempt")
+    ? `<li>Evidence of a special treatment licence or membership of an exempt organisation</li>`
+    : "";
+
+  const keyLine = keyCardAlreadyIssued
+    ? `Once we've received these, we can arrange access to our online room booking system.`
+    : `Once we've received these, we can arrange access to our online room booking system and arrange to get a ${branches.includes("South Wimbledon") ? "fob" : "key"} to you.`;
+
+  const html = `
+<p>Dear ${firstName},</p>
+
+<p>I enclose our Terms of Agreement and associated induction documents for your review; if you are happy with this I would be grateful if you could sign, scan and return this to us by email. Please could you also provide us with a copy of the following:</p>
+
+<ul>
+  <li>Professional indemnity insurance</li>
+  <li>Evidence of professional accreditation</li>
+  <li>Photographic ID, either passport or driving licence</li>
+  <li>A utility bill from the past three months as proof of address</li>
+  ${stlBullet}
+</ul>
+
+<p>${keyLine}</p>
+
+<p>We have agreed that we will license you to use rooms in ${branchList}. Room charges are shown in the attached induction document.</p>
+
+<p>Payment will be taken by direct debit at the end of each month. We will email you a link to set up the direct debit; we use GoCardless as our service provider and all payments are of course covered by the direct debit guarantee. We use an online room booking system and therapists are provided with a username and password for managing booking details.</p>
+
+<p>Please let me know if you have any questions and we look forward to welcoming you to the clinic.</p>
+
+<p>Best regards,<br/>
+<strong>Peter Strong</strong><br/>
+Director</p>
+
+<table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
+  <tr>
+    <td style="padding-right:12px;vertical-align:middle">
+      <img src="https://www.therapyspaces.co.uk/images/logo.png" alt="Therapy Spaces" width="48" style="display:block"/>
+    </td>
+    <td style="vertical-align:middle;font-family:Arial,sans-serif;font-size:13px;color:#444">
+      <strong style="color:#222">Therapy Spaces</strong><br/>
+      t: 07710 132 221<br/>
+      e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
+      w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
+    </td>
+  </tr>
+</table>
+`;
+
+  const text = `Dear ${firstName},
+
+I enclose our Terms of Agreement and associated induction documents for your review; if you are happy with this I would be grateful if you could sign, scan and return this to us by email. Please could you also provide us with a copy of the following:
+
+- Professional indemnity insurance
+- Evidence of professional accreditation
+- Photographic ID, either passport or driving licence
+- A utility bill from the past three months as proof of address${stlBullet ? "\n- Evidence of a special treatment licence or membership of an exempt organisation" : ""}
+
+${keyLine}
+
+We have agreed that we will license you to use rooms in ${branchList}. Room charges are shown in the attached induction document.
+
+Payment will be taken by direct debit at the end of each month. We will email you a link to set up the direct debit; we use GoCardless as our service provider and all payments are of course covered by the direct debit guarantee. We use an online room booking system and therapists are provided with a username and password for managing booking details.
+
+Please let me know if you have any questions and we look forward to welcoming you to the clinic.
+
+Best regards,
+Peter Strong
+Director
+Therapy Spaces
+t: 07710 132 221
+e: enquiries@therapyspaces.co.uk
+w: www.therapyspaces.co.uk`;
+
+  const provider = process.env.EMAIL_PROVIDER;
+  if (provider === "resend" && process.env.RESEND_API_KEY) {
+    await sendViaResendWithAttachments({
+      to: params.to,
+      subject: "Therapy Spaces Induction Pack",
+      html,
+      text,
+      attachments: params.attachments,
+    });
+  } else {
+    console.log("---- INDUCTION EMAIL (dev mode) ----");
+    console.log("To:", params.to);
+    console.log("Branches:", branchList);
+    console.log("Attachments:", params.attachments.map(a => a.filename).join(", "));
+    console.log(text);
+    console.log("------------------------------------");
+  }
+}

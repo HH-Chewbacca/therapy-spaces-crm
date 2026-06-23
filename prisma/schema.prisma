@@ -75,6 +75,7 @@ model User {
   accreditationChecked Boolean   @default(false)
   insuranceChecked     Boolean   @default(false)
   stlStatus            String?   // "Not required" | "STL held" | "Exempt"
+  stlRequired          Boolean   @default(false) // auto-set from skill, manually overridable
   documentReviewDate   DateTime? // set when all four checks are complete
   bookingSystemInvitedAt DateTime? // when the booking system invite was sent
   keyGivenDate         DateTime?

@@ -202,7 +202,7 @@ export async function sendInductionEmail(params: {
   keyCardAlreadyIssued: boolean;
   attachments: Attachment[];
 }): Promise<void> {
-  const { name, branches, skill, stlStatus, keyCardAlreadyIssued } = params;
+  const { name, branches, skill, stlStatus, stlRequired, keyCardAlreadyIssued } = params;
   const firstName = name.split(" ")[0];
   const branchList = branches.join(" and ");
 

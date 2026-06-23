@@ -6,6 +6,7 @@ import { Card, Alert } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 
 interface Organisation { id: string; name: string; }
+interface Location { id: string; name: string; }
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
   isActive: boolean; companyName: string | null;
@@ -22,9 +23,9 @@ interface Therapist {
   createdAt: string;
   viewingDate: string | null; documentPackDate: string | null;
   idChecked: boolean; addressChecked: boolean;
-  accreditationChecked: boolean; insuranceChecked: boolean;
+  accreditationChecked: boolean; insuranceChecked: boolean; stlStatus: string | null;
   documentReviewDate: string | null; bookingSystemInvitedAt: string | null;
-  keyGivenDate: string | null; keySentDate: string | null; stlStatus: string | null;
+  keyGivenDate: string | null; keySentDate: string | null;
   keyCard: string | null; depositInvoicedDate: string | null;
   accreditationBody: string | null; accreditationNumber: string | null;
   clinicTelephone: string | null; clinicEmail: string | null; website: string | null;
@@ -32,6 +33,7 @@ interface Therapist {
   bioText: string | null; showProfile: boolean; includeInBilling: boolean;
   organisationId: string | null; documentsUrl: string | null; fanvilCardId: string | null;
   organisation: Organisation | null;
+  primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
 }
 
@@ -96,25 +98,38 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function abbrevBranch(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("wimbledon")) return "SWIM";
+  if (n.includes("surbiton")) return "SURB";
+  return name;
+}
+
 export default function TherapistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [t, setT] = useState<Therapist | null>(null);
   const [orgs, setOrgs] = useState<Organisation[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [sendingInduction, setSendingInduction] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(true);
 
   const load = useCallback(async () => {
-    const [tr, or] = await Promise.all([
+    const [tr, or, lr] = await Promise.all([
       fetch(`/api/therapists/${id}`).then(r => r.json()),
       fetch("/api/organisations").then(r => r.json()),
+      fetch("/api/locations").then(r => r.json()),
     ]);
     if (!tr.therapist) { router.push("/therapists"); return; }
     setT(tr.therapist);
     setOrgs(or.organisations ?? []);
+    setLocations(lr.locations ?? []);
+    setSelectedLocationIds(tr.therapist.authorisedLocations.map((l: { location: { id: string } }) => l.location.id));
     setOnboardingOpen(!isOnboardingComplete(tr.therapist));
   }, [id, router]);
 
@@ -125,21 +140,24 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     setT(prev => prev ? { ...prev, [field]: value } : prev);
   }
 
+  function toggleLocation(locId: string) {
+    setSelectedLocationIds(prev =>
+      prev.includes(locId) ? prev.filter(x => x !== locId) : [...prev, locId]
+    );
+  }
+
   async function save() {
     if (!t) return;
     setSaving(true); setMsg(null);
 
-    // Ensure date-only strings get a time component so Prisma accepts them as ISO-8601
     const DATE_FIELDS = [
       "viewingDate","documentPackDate","documentReviewDate",
       "bookingSystemInvitedAt","keyGivenDate","keySentDate","depositInvoicedDate",
     ] as const;
-    const payload = { ...t } as Record<string, unknown>;
+    const payload = { ...t, locationIds: selectedLocationIds } as Record<string, unknown>;
     for (const f of DATE_FIELDS) {
       const v = payload[f];
-      if (typeof v === "string" && v.length === 10) {
-        payload[f] = v + "T00:00:00.000Z";
-      }
+      if (typeof v === "string" && v.length === 10) payload[f] = v + "T00:00:00.000Z";
     }
 
     const res = await fetch(`/api/therapists/${t.id}`, {
@@ -161,6 +179,21 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     setInviting(false);
   }
 
+  async function sendInductionPack() {
+    if (!t || !confirm(`Send induction pack to ${t.email}?`)) return;
+    setSendingInduction(true); setMsg(null);
+    const res = await fetch(`/api/therapists/${t.id}/induction`, { method: "POST" });
+    if (res.ok) {
+      const d = await res.json();
+      setMsg({ text: `Induction pack sent for ${d.branches.join(" & ")}.`, type: "success" });
+      await load();
+    } else {
+      const d = await res.json();
+      setMsg({ text: d.error ?? "Error sending induction pack", type: "error" });
+    }
+    setSendingInduction(false);
+  }
+
   async function deleteTherapist() {
     if (!t || !confirm(`Permanently delete ${t.name}? This cannot be undone.`)) return;
     setDeleting(true);
@@ -174,26 +207,47 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     }
   }
 
+  function printAddressLabel() {
+    if (!t) return;
+    const lines = [
+      t.name,
+      t.companyName,
+      t.address1,
+      t.address2,
+      t.address3,
+      t.postcode,
+      t.county,
+    ].filter(Boolean).join("\n");
+
+    const win = window.open("", "_blank", "width=400,height=300");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
+<style>
+  @page { margin: 0; size: 89mm 36mm; }
+  body { margin: 4mm; font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; }
+  pre { margin: 0; font-family: inherit; font-size: inherit; white-space: pre-wrap; }
+</style></head><body><pre>${lines}</pre>
+<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
+    win.document.close();
+  }
+
   function exportSkeddaCSV() {
     if (!t) return;
-    // Skedda key deposit CSV format: name, email, amount
-    const rows = [
-      ["Name", "Email", "Amount", "Description"],
-      [t.name, t.email, "20.00", "Key deposit"],
-    ];
+    const rows = [["Name","Email","Amount","Description"],[t.name,t.email,"20.00","Key deposit"]];
     const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `skedda-deposit-${t.name.replace(/\s+/g, "-").toLowerCase()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = `skedda-deposit-${t.name.replace(/\s+/g,"-").toLowerCase()}.csv`;
+    a.click(); URL.revokeObjectURL(url);
   }
 
   if (!t) return <p className="text-muted-foreground text-sm">Loading…</p>;
 
   const complete = isOnboardingComplete(t);
+  const activeBranches = selectedLocationIds
+    .map(lid => locations.find(l => l.id === lid)?.name ?? "")
+    .filter(Boolean);
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -209,7 +263,10 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
             {t.companyName && <span className="text-muted-foreground font-normal ml-2 text-base">({t.companyName})</span>}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t.email}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Added {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Added {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            {activeBranches.length > 0 && <span className="ml-2">· {activeBranches.map(abbrevBranch).join(", ")}</span>}
+          </p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
           {t.documentsUrl && (
@@ -217,9 +274,15 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               <Button variant="secondary" size="sm">📁 Documents</Button>
             </a>
           )}
+          <Button variant="secondary" size="sm" onClick={printAddressLabel}>🏷 Label</Button>
           {!t.bookingSystemInvitedAt && (
             <Button variant="secondary" size="sm" onClick={sendInvite} disabled={inviting}>
               {inviting ? "Sending…" : "Send invite"}
+            </Button>
+          )}
+          {!complete && (
+            <Button variant="secondary" size="sm" onClick={sendInductionPack} disabled={sendingInduction}>
+              {sendingInduction ? "Sending…" : "📋 Induction pack"}
             </Button>
           )}
           <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
@@ -231,8 +294,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Onboarding — collapsible */}
       <Card className="space-y-0 p-0 overflow-hidden">
-        <button
-          onClick={() => setOnboardingOpen(o => !o)}
+        <button onClick={() => setOnboardingOpen(o => !o)}
           className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface-muted/50 transition-colors">
           <div className="flex items-center gap-3">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Onboarding</h2>
@@ -260,8 +322,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               <CheckStep label="Insurance checked" checked={t.insuranceChecked} onChange={v => update("insuranceChecked", v)} />
               <div className="flex items-center gap-3 pt-1">
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                  t.stlStatus === "STL held" || t.stlStatus === "Exempt"
-                    ? "bg-primary border-primary" : "border-border"
+                  t.stlStatus === "STL held" || t.stlStatus === "Exempt" ? "bg-primary border-primary" : "border-border"
                 }`}>
                   {(t.stlStatus === "STL held" || t.stlStatus === "Exempt") && (
                     <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -269,9 +330,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Special treatment licence</p>
-                  <select
-                    value={t.stlStatus ?? "Not required"}
-                    onChange={e => update("stlStatus", e.target.value)}
+                  <select value={t.stlStatus ?? "Not required"} onChange={e => update("stlStatus", e.target.value)}
                     className="rounded-[var(--radius)] border border-border bg-surface px-2 py-1 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary">
                     <option value="Not required">Not required</option>
                     <option value="STL held">STL held</option>
@@ -282,7 +341,6 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
             </div>
             <DateStep label="Documents reviewed" value={t.documentReviewDate} onChange={v => update("documentReviewDate", v || null)}
               actionLabel="Today" onAction={() => update("documentReviewDate", today())} />
-
             {/* Booking system invite */}
             <div className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.bookingSystemInvitedAt ? "bg-primary border-primary" : "border-border"}`}>
@@ -301,11 +359,9 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               </div>
             </div>
-
             <DateStep label="Key sent" value={t.keySentDate ?? t.keyGivenDate}
               onChange={v => { update("keySentDate", v || null); update("keyGivenDate", v || null); }}
               actionLabel="Today" onAction={() => { update("keySentDate", today()); update("keyGivenDate", today()); }} />
-
             {/* Deposit invoiced */}
             <div className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.depositInvoicedDate ? "bg-primary border-primary" : "border-border"}`}>
@@ -354,10 +410,29 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
           <F label="Postcode"><Input value={t.postcode ?? ""} onChange={e => update("postcode", e.target.value)} /></F>
           <F label="Country"><Input value={t.country ?? ""} onChange={e => update("country", e.target.value)} /></F>
         </div>
+        <F label="Notes">
+          <textarea value={t.notes ?? ""} onChange={e => update("notes", e.target.value)} rows={4}
+            className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
+        </F>
       </Section>
 
       {/* Organisation & Billing */}
       <Section title="Organisation & Billing">
+        {/* Branch selector */}
+        <div>
+          <Label>Authorised branches</Label>
+          <div className="flex gap-3 mt-1">
+            {locations.map(loc => (
+              <label key={loc.id} className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                <input type="checkbox"
+                  checked={selectedLocationIds.includes(loc.id)}
+                  onChange={() => toggleLocation(loc.id)}
+                  className="h-4 w-4 rounded border-border text-primary" />
+                {abbrevBranch(loc.name)}
+              </label>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <F label="Organisation">
             <Select value={t.organisationId ?? ""} onChange={e => update("organisationId", e.target.value || null)}>
@@ -365,7 +440,8 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
               {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </Select>
           </F>
-          <F label="Key card number"><Input value={t.keyCard ?? ""} onChange={e => update("keyCard", e.target.value)} /></F>
+          <F label="Key card / fob number"><Input value={t.keyCard ?? ""} onChange={e => update("keyCard", e.target.value)} /></F>
+          <F label="Fanvil card ID"><Input value={t.fanvilCardId ?? ""} onChange={e => update("fanvilCardId", e.target.value)} /></F>
           <F label="Referred by">
             <Select value={t.referredBy ?? ""} onChange={e => update("referredBy", e.target.value || null)}>
               <option value="">— Not set —</option>
@@ -423,38 +499,12 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </Section>
 
-      {/* Practice Profile */}
-      <Section title="Practice Profile">
-        <div className="grid grid-cols-2 gap-4">
-          <F label="Clinic days/times"><Input value={t.clinicsDaysTimes ?? ""} onChange={e => update("clinicsDaysTimes", e.target.value)} /></F>
-          <F label="Fees"><Input value={t.fees ?? ""} onChange={e => update("fees", e.target.value)} /></F>
-          <F label="Insurance companies"><Input value={t.insuranceCompanies ?? ""} onChange={e => update("insuranceCompanies", e.target.value)} /></F>
-        </div>
-        <F label="Bio">
-          <textarea value={t.bioText ?? ""} onChange={e => update("bioText", e.target.value)} rows={3}
-            className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
-        </F>
-        <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-          <input type="checkbox" checked={t.showProfile} onChange={e => update("showProfile", e.target.checked)} className="h-4 w-4 rounded border-border" />
-          Show on public profile
-        </label>
-      </Section>
-
       {/* Admin */}
       <Section title="Admin">
-        <div className="grid grid-cols-2 gap-4">
-          <F label="Fanvil card ID"><Input value={t.fanvilCardId ?? ""} onChange={e => update("fanvilCardId", e.target.value)} /></F>
-          <F label="OneDrive documents URL">
-            <Input type="url" placeholder="https://onedrive.live.com/…" value={t.documentsUrl ?? ""} onChange={e => update("documentsUrl", e.target.value)} />
-          </F>
-        </div>
-        <F label="Notes">
-          <textarea value={t.notes ?? ""} onChange={e => update("notes", e.target.value)} rows={4}
-            className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary" />
+        <F label="OneDrive documents URL">
+          <Input type="url" placeholder="https://onedrive.live.com/…" value={t.documentsUrl ?? ""} onChange={e => update("documentsUrl", e.target.value)} />
         </F>
       </Section>
     </div>
   );
 }
-
-

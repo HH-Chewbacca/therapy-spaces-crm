@@ -285,7 +285,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
         await qz.websocket.connect();
         const printer = await qz.printers.find("Brother QL-800");
         const config = qz.configs.create(printer, {
-          size: { width: 3.54, height: 1.14 }, // 90mm x 29mm in inches
+          size: { width: 3.54, height: 1.50 }, // 90mm x 38mm in inches
           units: "in",
           orientation: "landscape",
         });

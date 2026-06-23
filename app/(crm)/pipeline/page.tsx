@@ -14,24 +14,34 @@ interface Therapist {
   createdAt: string;
 }
 
-type Stage = "Enquiry" | "Viewed" | "Pack sent" | "Docs reviewed" | "Invited" | "Key issued";
+// Stages in order - key given and key sent combined into "Key sent"
+type Stage = "Enquiry" | "Viewed" | "Pack sent" | "Docs reviewed" | "Invited" | "Key sent";
+
+const STAGE_ORDER: Stage[] = ["Enquiry", "Viewed", "Pack sent", "Docs reviewed", "Invited", "Key sent"];
+
+// Traffic light: red -> amber -> yellow -> yellow-green -> light green -> green
+const STAGE_CONFIG: Record<Stage, {
+  label: string;
+  desc: string;
+  row: string;   // table row bg
+  badge: string; // badge pill
+  dot: string;   // legend dot colour
+}> = {
+  "Enquiry":       { label: "Enquiry",       desc: "No viewing date set",          row: "bg-red-50 border-red-200",          badge: "bg-red-100 text-red-700",              dot: "bg-red-500" },
+  "Viewed":        { label: "Viewed",         desc: "Viewing date recorded",         row: "bg-orange-50 border-orange-200",     badge: "bg-orange-100 text-orange-700",        dot: "bg-orange-500" },
+  "Pack sent":     { label: "Pack sent",      desc: "Document pack sent",            row: "bg-amber-50 border-amber-200",       badge: "bg-amber-100 text-amber-700",          dot: "bg-amber-500" },
+  "Docs reviewed": { label: "Docs reviewed",  desc: "Documents checked & reviewed",  row: "bg-yellow-50 border-yellow-200",     badge: "bg-yellow-100 text-yellow-700",        dot: "bg-yellow-500" },
+  "Invited":       { label: "Invited",        desc: "Booking system invite sent",    row: "bg-lime-50 border-lime-200",         badge: "bg-lime-100 text-lime-700",            dot: "bg-lime-500" },
+  "Key sent":      { label: "Key sent",       desc: "Key issued — awaiting deposit", row: "bg-green-50 border-green-200",       badge: "bg-green-100 text-green-700",          dot: "bg-green-500" },
+};
 
 function getStage(t: Therapist): Stage {
-  if (t.keySentDate || t.keyGivenDate) return "Key issued";
+  if (t.keySentDate || t.keyGivenDate) return "Key sent";
   if (t.bookingSystemInvitedAt) return "Invited";
   if (t.documentReviewDate) return "Docs reviewed";
   if (t.documentPackDate) return "Pack sent";
   if (t.viewingDate) return "Viewed";
   return "Enquiry";
-}
-
-function latestDate(t: Therapist): number {
-  const dates = [
-    t.keySentDate, t.keyGivenDate, t.bookingSystemInvitedAt,
-    t.documentReviewDate, t.documentPackDate, t.viewingDate, t.createdAt,
-  ];
-  const times = dates.map(d => d ? new Date(d).getTime() : 0);
-  return Math.max(...times);
 }
 
 function daysSince(d: string | null): number | null {
@@ -48,24 +58,6 @@ function lastAction(t: Therapist): string {
   return `${n}d ago`;
 }
 
-const STAGE_ORDER: Stage[] = ["Enquiry", "Viewed", "Pack sent", "Docs reviewed", "Invited", "Key issued"];
-const STAGE_COLOURS: Record<Stage, string> = {
-  "Enquiry":       "bg-danger-bg border-danger/20",
-  "Viewed":        "bg-surface-muted border-border",
-  "Pack sent":     "bg-warning-bg border-warning-border",
-  "Docs reviewed": "bg-warning-bg border-warning-border",
-  "Invited":       "bg-success-bg border-primary/20",
-  "Key issued":    "bg-primary/5 border-primary/20",
-};
-const STAGE_BADGE: Record<Stage, string> = {
-  "Enquiry":       "bg-danger-bg text-danger",
-  "Viewed":        "bg-surface-muted text-muted-foreground",
-  "Pack sent":     "bg-warning-bg text-foreground",
-  "Docs reviewed": "bg-warning-bg text-foreground",
-  "Invited":       "bg-success-bg text-primary",
-  "Key issued":    "bg-primary/10 text-primary",
-};
-
 export default function PipelinePage() {
   const router = useRouter();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -80,8 +72,8 @@ export default function PipelinePage() {
     const r = await fetch("/api/therapists");
     const d = await r.json();
     const list = (d.therapists ?? []).filter((t: Therapist) => t.isActive && !t.depositInvoicedDate);
-    // Sort by most recent action descending
-    list.sort((a: Therapist, b: Therapist) => latestDate(b) - latestDate(a));
+    // Sort by most recently added (createdAt desc)
+    list.sort((a: Therapist, b: Therapist) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     setTherapists(list);
     setLoading(false);
   }, []);
@@ -118,11 +110,6 @@ export default function PipelinePage() {
     router.push(`/therapists/${data.therapist.id}`);
   }
 
-  const byStage = STAGE_ORDER.reduce<Record<Stage, Therapist[]>>((acc, s) => {
-    acc[s] = therapists.filter(t => getStage(t) === s);
-    return acc;
-  }, {} as Record<Stage, Therapist[]>);
-
   if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
 
   return (
@@ -134,9 +121,27 @@ export default function PipelinePage() {
           <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
         </div>
       </div>
+
+      {/* Colour key */}
+      <div className="flex flex-wrap gap-3 p-3 bg-surface border border-border rounded-[var(--radius)]">
+        {STAGE_ORDER.map(stage => {
+          const cfg = STAGE_CONFIG[stage];
+          const count = therapists.filter(t => getStage(t) === stage).length;
+          return (
+            <div key={stage} className="flex items-center gap-1.5">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${cfg.dot}`} />
+              <span className="text-xs text-foreground font-medium">{cfg.label}</span>
+              <span className="text-xs text-muted-foreground">— {cfg.desc}</span>
+              {count > 0 && <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cfg.badge}`}>{count}</span>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Email drop zone */}
       <div onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)} onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-[var(--radius)] p-6 text-center transition-colors ${dragging ? "border-primary bg-success-bg" : "border-border bg-surface"}`}>
+        className={`border-2 border-dashed rounded-[var(--radius)] p-5 text-center transition-colors ${dragging ? "border-primary bg-green-50" : "border-border bg-surface"}`}>
         {parsing ? <p className="text-muted-foreground text-sm">Parsing email…</p> : (
           <>
             <p className="text-sm text-foreground font-medium">Drop a <code className="bg-surface-muted px-1 rounded text-xs">.msg</code> viewing-request to import an enquiry</p>
@@ -144,6 +149,7 @@ export default function PipelinePage() {
           </>
         )}
       </div>
+
       {parsed && (
         <Card>
           <h2 className="text-sm font-semibold text-foreground mb-3">Review imported enquiry</h2>
@@ -162,51 +168,55 @@ export default function PipelinePage() {
           </div>
         </Card>
       )}
+
       {error && <Alert variant="danger">{error}</Alert>}
-      <div className="space-y-5">
-        {STAGE_ORDER.map(stage => {
-          const list = byStage[stage];
-          if (list.length === 0) return null;
-          return (
-            <div key={stage}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STAGE_BADGE[stage]}`}>{stage}</span>
-                <span className="text-sm text-muted-foreground">{list.length}</span>
-              </div>
-              <div className={`border rounded-[var(--radius)] overflow-hidden ${STAGE_COLOURS[stage]}`}>
-                <table className="w-full text-sm">
-                  <thead className="bg-white/40 text-left text-xs font-medium text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2">Name</th>
-                      <th className="px-4 py-2">Email</th>
-                      <th className="px-4 py-2">Skill</th>
-                      <th className="px-4 py-2">Phone</th>
-                      <th className="px-4 py-2">Last action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/40">
-                    {list.map(t => (
-                      <tr key={t.id} className="hover:bg-white/30 transition-colors">
-                        <td className="px-4 py-2 font-medium text-foreground">
-                          <Link href={`/therapists/${t.id}`} className="hover:text-primary transition-colors">
-                            {t.flag && "🚩 "}{t.name}
-                            {t.companyName && <span className="text-muted-foreground font-normal ml-1">({t.companyName})</span>}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-2 text-muted-foreground">{t.email}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{t.skill ?? "—"}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{t.phone ?? "—"}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{lastAction(t)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })}
-        {therapists.length === 0 && <p className="text-muted-foreground text-sm">No therapists currently in the pipeline.</p>}
-      </div>
+
+      {/* Single flat table sorted by createdAt desc, colour-coded by stage */}
+      <Card className="p-0 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-muted text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <tr>
+              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">Skill</th>
+              <th className="px-4 py-3">Stage</th>
+              <th className="px-4 py-3">Phone</th>
+              <th className="px-4 py-3">Last action</th>
+              <th className="px-4 py-3">Added</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {therapists.map(t => {
+              const stage = getStage(t);
+              const cfg = STAGE_CONFIG[stage];
+              return (
+                <tr key={t.id} className={`${cfg.row} transition-colors`}>
+                  <td className="px-4 py-2.5 font-medium text-foreground">
+                    <Link href={`/therapists/${t.id}`} className="hover:underline">
+                      {t.flag && "🚩 "}{t.name}
+                      {t.companyName && <span className="text-muted-foreground font-normal ml-1">({t.companyName})</span>}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{t.skill ?? "—"}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                      {cfg.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{t.phone ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{lastAction(t)}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground text-xs">
+                    {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}
+                  </td>
+                </tr>
+              );
+            })}
+            {therapists.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No therapists in the pipeline</td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
     </div>
   );
 }

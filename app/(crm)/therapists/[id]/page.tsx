@@ -255,25 +255,21 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     if (!win) return;
     // Brother QL-800: 89mm wide x 36mm tall, fed landscape
     // Font size tuned so ~5 lines fit in 36mm height
-    // Label roll is 38mm x 90mm
+    // Label roll: select correct size in Chrome print dialog (38x90 or 29x90)
     win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
 <style>
-  @page {
-    size: 90mm 38mm;
-    margin: 0;
-  }
+  @page { size: 90mm 38mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 90mm;
-    height: 38mm;
-    overflow: hidden;
-  }
+  html { width: 90mm; }
   body {
+    width: 90mm;
     padding: 2mm 3mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     line-height: 1.35;
     color: #000;
+    /* Prevent blank second page */
+    display: inline-block;
   }
   p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style></head><body>

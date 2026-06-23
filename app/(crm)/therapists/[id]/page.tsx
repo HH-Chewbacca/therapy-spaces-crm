@@ -283,7 +283,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     body { width: 89mm; height: 36mm; }
   }
 </style></head><body>
-${lines.map((l: string) => `<p>${l}</p>`).join("")}
+${lines.map((l) => `<p>${l}</p>`).join("")}
 <script>setTimeout(function(){window.print();},150);<\/script>
 </body></html>`);
     win.document.close();

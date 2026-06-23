@@ -251,66 +251,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       t.county,
     ].filter((l): l is string => !!l);
 
-    // Try QZ Tray first (silent direct print), fall back to browser dialog
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const qz = (window as any).qz;
-    if (qz) {
-      try {
-        // Set up certificate + signing so QZ Tray trusts this site
-        qz.security.setCertificatePromise((_resolve: (v: string) => void, reject: (e: unknown) => void) => {
-          fetch("/api/qz/sign", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ request: "" }),
-          })
-            .then(r => r.json())
-            .then(d => _resolve(d.certificate))
-            .catch(reject);
-        });
-
-        qz.security.setSignatureAlgorithm("SHA512");
-        qz.security.setSignaturePromise((toSign: string) => {
-          return (_resolve: (v: string) => void, reject: (e: unknown) => void) => {
-            fetch("/api/qz/sign", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ request: toSign }),
-            })
-              .then(r => r.json())
-              .then(d => _resolve(d.signature))
-              .catch(reject);
-          };
-        });
-
-        await qz.websocket.connect();
-        const printer = await qz.printers.find("Brother QL-800");
-        const config = qz.configs.create(printer, {
-          size: { width: 3.54, height: 1.50 }, // 90mm x 38mm in inches
-          units: "in",
-          orientation: "landscape",
-          colorType: "blackwhite",
-          scaleContent: true,
-          rasterize: true,
-          ignoreTransparency: true,
-          altPrinting: false,
-          encoding: null,
-          endOfDoc: "",
-          perSpool: 1,
-        });
-        // Use image/html pixel printing — QL-800 needs rasterised output
-        const html = `<html><body style="margin:2mm 3mm;font-family:Arial,sans-serif;font-size:11pt;line-height:1.5;width:82mm;height:34mm;overflow:hidden;">
-          ${lines.map(l => `<p style="margin:0;padding:0;">${l}</p>`).join("")}
-        </body></html>`;
-        const printData = [{ type: "pixel", format: "html", flavor: "plain", data: html }];
-        await qz.print(config, printData);
-        await qz.websocket.disconnect();
-        return;
-      } catch (e) {
-        console.warn("QZ Tray print failed, falling back to browser:", e);
-      }
-    }
-
-    // Fallback: browser print dialog
+    // Browser print dialog — direct to Brother QL-800 via Windows driver
     const win = window.open("", "_blank", "width=400,height=300");
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Label</title>

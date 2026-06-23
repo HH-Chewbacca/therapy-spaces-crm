@@ -236,22 +236,18 @@ export function buildInductionEmailHtml(params: {
 
 <p>Please let me know if you have any questions and we look forward to welcoming you to the clinic.</p>
 
-<p>Best regards,<br/>
-<strong>Peter Strong</strong><br/>
-Director</p>
+<p>Best regards,</p>
 
-<table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
-  <tr>
-    <td style="vertical-align:top">
-      <img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin-bottom:8px"/>
-      <div style="font-family:Arial,sans-serif;font-size:13px;color:#444">
-        t: 07710 132 221<br/>
-        e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
-        w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
-      </div>
-    </td>
-  </tr>
-</table>
+<p><strong>Peter Strong</strong><br/>
+Managing Director</p>
+
+<div style="font-family:Arial,sans-serif;font-size:13px;color:#444;margin-top:12px">
+  t: 07710 132 221<br/>
+  e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
+  w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
+</div>
+
+<img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin-top:16px"/>
 `;
 }
 
@@ -303,7 +299,7 @@ Please let me know if you have any questions and we look forward to welcoming yo
 
 Best regards,
 Peter Strong
-Director
+Managing Director
 Therapy Spaces
 t: 07710 132 221
 e: enquiries@therapyspaces.co.uk

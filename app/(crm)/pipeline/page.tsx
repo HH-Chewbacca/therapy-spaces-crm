@@ -61,6 +61,7 @@ function lastAction(t: Therapist): string {
 export default function PipelinePage() {
   const router = useRouter();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [parsing, setParsing] = useState(false);
@@ -71,10 +72,25 @@ export default function PipelinePage() {
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    const list = (d.therapists ?? []).filter((t: Therapist) => t.isActive && !t.depositInvoicedDate);
+    const graduated = (t: Therapist) => !!(t.keySentDate || t.keyGivenDate || t.depositInvoicedDate);
+    const list = (d.therapists ?? []).filter((t: Therapist) => t.isActive && !graduated(t));
     // Sort by most recently added (createdAt desc)
     list.sort((a: Therapist, b: Therapist) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     setTherapists(list);
+  }, []);
+
+  const filtered = search.trim()
+    ? therapists.filter(t => {
+        const q = search.toLowerCase();
+        return t.name.toLowerCase().includes(q)
+          || t.email.toLowerCase().includes(q)
+          || (t.skill ?? "").toLowerCase().includes(q)
+          || (t.phone ?? "").includes(q);
+      })
+    : therapists;
+
+  // dummy to satisfy eslint - load is already memoised above
+  const _unused = null; void _unused;
     setLoading(false);
   }, []);
 
@@ -117,7 +133,7 @@ export default function PipelinePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Pipeline</h1>
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground">{therapists.length} in progress</p>
+          <p className="text-sm text-muted-foreground">{filtered.length}{search ? ` of ${therapists.length}` : ""} in progress</p>
           <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
         </div>
       </div>
@@ -137,6 +153,11 @@ export default function PipelinePage() {
           );
         })}
       </div>
+
+      {/* Search */}
+      <input type="search" placeholder="Search by name, email, skill or phone…"
+        value={search} onChange={e => setSearch(e.target.value)}
+        className="w-full max-w-md rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary" />
 
       {/* Email drop zone */}
       <div onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -185,7 +206,7 @@ export default function PipelinePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {therapists.map(t => {
+            {filtered.map(t => {
               const stage = getStage(t);
               const cfg = STAGE_CONFIG[stage];
               return (
@@ -211,8 +232,8 @@ export default function PipelinePage() {
                 </tr>
               );
             })}
-            {therapists.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No therapists in the pipeline</td></tr>
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{search ? "No results found" : "No therapists in the pipeline"}</td></tr>
             )}
           </tbody>
         </table>

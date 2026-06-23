@@ -74,6 +74,7 @@ model User {
   addressChecked       Boolean   @default(false)
   accreditationChecked Boolean   @default(false)
   insuranceChecked     Boolean   @default(false)
+  stlStatus            String?   // "Not required" | "STL held" | "Exempt"
   documentReviewDate   DateTime? // set when all four checks are complete
   bookingSystemInvitedAt DateTime? // when the booking system invite was sent
   keyGivenDate         DateTime?

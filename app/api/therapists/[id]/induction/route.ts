@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { detectStlRequired } from "@/lib/stl";
 import { sendInductionEmail } from "@/lib/email";
 import fs from "fs";
 import path from "path";
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     branches,
     skill: therapist.skill,
     stlStatus: therapist.stlStatus,
-    stlRequired: therapist.stlRequired ?? false,
+    stlRequired: (therapist.stlRequired || detectStlRequired(therapist.skill)),
     keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate),
     attachments,
   });

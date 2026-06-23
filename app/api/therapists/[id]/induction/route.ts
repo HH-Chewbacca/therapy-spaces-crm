@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     skill: therapist.skill,
     stlStatus: therapist.stlStatus,
     stlRequired: therapist.stlRequired ?? false,
-    keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate || therapist.fanvilCardId),
+    keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate),
     attachments,
   });
 

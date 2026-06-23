@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     name: therapist.name,
     branches,
     stlRequired: therapist.stlRequired ?? false,
-    keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate || therapist.fanvilCardId),
+    keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate),
   });
 
   return NextResponse.json({ html, to: therapist.email, branches });

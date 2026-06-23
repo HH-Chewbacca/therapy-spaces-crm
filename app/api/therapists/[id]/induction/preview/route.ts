@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { detectStlRequired } from "@/lib/stl";
 import { buildInductionEmailHtml } from "@/lib/email";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const html = buildInductionEmailHtml({
     name: therapist.name,
     branches,
-    stlRequired: therapist.stlRequired ?? false,
+    stlRequired: (therapist.stlRequired || detectStlRequired(therapist.skill)),
     keyCardAlreadyIssued: !!(therapist.keyGivenDate || therapist.keySentDate),
   });
 

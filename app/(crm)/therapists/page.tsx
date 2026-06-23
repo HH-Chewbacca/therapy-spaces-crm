@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/Card";
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
   companyName: string | null; skill: string | null; isActive: boolean;
-  flag: boolean; depositInvoicedDate: string | null;
+  flag: boolean;
+  keySentDate: string | null; keyGivenDate: string | null; depositInvoicedDate: string | null;
   organisation: { id: string; name: string } | null;
   primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
@@ -27,6 +28,10 @@ function branches(t: Therapist): string {
   return names.map(abbrevBranch).join(", ") || "—";
 }
 
+function isGraduated(t: Therapist): boolean {
+  return !!(t.keySentDate || t.keyGivenDate || t.depositInvoicedDate);
+}
+
 export default function TherapistsPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [search, setSearch] = useState("");
@@ -37,7 +42,7 @@ export default function TherapistsPage() {
     const q = search ? `?search=${encodeURIComponent(search)}` : "";
     const r = await fetch(`/api/therapists${q}`);
     const d = await r.json();
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && !!t.depositInvoicedDate));
+    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && isGraduated(t)));
     setLoading(false);
   }, [search]);
 

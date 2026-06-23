@@ -255,40 +255,29 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     if (!win) return;
     // Brother QL-800: 89mm wide x 36mm tall, fed landscape
     // Font size tuned so ~5 lines fit in 36mm height
-    // Label: 29mm wide x 90mm long, fed portrait
-    // Text rotated 90deg so it reads along the 90mm length
+    // Label: 29mm x 90mm, driver set to Landscape
+    // In landscape: 90mm is the width, 29mm is the height
     win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
 <style>
-  @page { size: 29mm 90mm portrait; margin: 0; }
+  @page { size: 90mm 29mm landscape; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 29mm; height: 90mm; overflow: hidden; background: white; }
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
+  html, body {
+    width: 90mm;
+    height: 29mm;
+    overflow: hidden;
+    background: white;
   }
-  .inner {
-    /* Rotate text to read along the 90mm length */
-    transform: rotate(90deg);
-    transform-origin: center center;
-    width: 84mm;
-    height: 25mm;
-    padding: 1mm 2mm;
+  body {
+    padding: 2mm 3mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 8.5pt;
     line-height: 1.3;
     color: #000;
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    margin-left: -42mm;
-    margin-top: -12.5mm;
+    display: inline-block;
   }
   p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style></head><body>
-<div class="inner">
 ${lines.map((l) => `<p>${l}</p>`).join("")}
-</div>
 <script>setTimeout(function(){window.print();},150);<\/script>
 </body></html>`);
     win.document.close();

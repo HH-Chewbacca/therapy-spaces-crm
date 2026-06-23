@@ -153,7 +153,12 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       fetch("/api/locations").then(r => r.json()),
     ]);
     if (!tr.therapist) { router.push("/therapists"); return; }
-    setT(tr.therapist);
+    const therapist = tr.therapist;
+    // Auto-set stlRequired if not already set and skill matches keywords
+    if (!therapist.stlRequired && detectStlRequired(therapist.skill)) {
+      therapist.stlRequired = true;
+    }
+    setT(therapist);
     setOrgs(or.organisations ?? []);
     setLocations(lr.locations ?? []);
     setSelectedLocationIds(tr.therapist.authorisedLocations.map((l: { location: { id: string } }) => l.location.id));

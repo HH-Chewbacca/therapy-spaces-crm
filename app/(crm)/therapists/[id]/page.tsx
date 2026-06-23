@@ -180,6 +180,31 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
+  // Intercept in-app navigation (nav tabs, any internal link) while there are
+  // unsaved changes, so the user is prompted before leaving the page.
+  useEffect(() => {
+    if (!dirty) return;
+    function onDocClick(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as HTMLElement).closest("a");
+      if (!a) return;
+      const href = a.getAttribute("href");
+      if (!href || !href.startsWith("/")) return; // only guard internal app routes
+      if (a.getAttribute("target") === "_blank") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const doSave = confirm("You have unsaved changes.\n\nOK = save and leave\nCancel = leave without saving");
+      if (doSave) {
+        save().then(ok => { if (ok) router.push(href); });
+      } else {
+        setDirty(false);
+        router.push(href);
+      }
+    }
+    document.addEventListener("click", onDocClick, true);
+    return () => document.removeEventListener("click", onDocClick, true);
+  }, [dirty, save, router]);
+
   function update<K extends keyof Therapist>(field: K, value: Therapist[K]) {
     setT(prev => prev ? { ...prev, [field]: value } : prev);
     setDirty(true);

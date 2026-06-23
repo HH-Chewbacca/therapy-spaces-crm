@@ -239,7 +239,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     }
   }
 
-  function printAddressLabel() {
+  async function printAddressLabel() {
     if (!t) return;
     const lines = [
       t.name,
@@ -249,39 +249,50 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       t.address3,
       t.postcode,
       t.county,
-    ].filter(Boolean);
+    ].filter((l): l is string => !!l);
 
+    // Try QZ Tray first (silent direct print), fall back to browser dialog
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const qz = (window as any).qz;
+    if (qz) {
+      try {
+        await qz.websocket.connect();
+        const printer = await qz.printers.find("Brother QL-800");
+        const config = qz.configs.create(printer, {
+          size: { width: 3.54, height: 1.14 }, // 90mm x 29mm in inches
+          units: "in",
+          orientation: "landscape",
+        });
+        // Print as HTML via QZ Tray
+        const html = `<html><body style="margin:2mm 3mm;font-family:Arial,sans-serif;font-size:9pt;line-height:1.3">
+          ${lines.map(l => `<p style="margin:0">${l}</p>`).join("")}
+        </body></html>`;
+        const data = [{ type: "pixel", format: "html", flavor: "plain", data: html }];
+        await qz.print(config, data);
+        await qz.websocket.disconnect();
+        return;
+      } catch (e) {
+        console.warn("QZ Tray print failed, falling back to browser:", e);
+      }
+    }
+
+    // Fallback: browser print dialog
     const win = window.open("", "_blank", "width=400,height=300");
     if (!win) return;
-    // Brother QL-800: 89mm wide x 36mm tall, fed landscape
-    // Font size tuned so ~5 lines fit in 36mm height
-    // Label: 29mm x 90mm, driver set to Landscape
-    // In landscape: 90mm is the width, 29mm is the height
     win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
 <style>
   @page { size: 90mm 29mm landscape; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 90mm;
-    height: 29mm;
-    overflow: hidden;
-    background: white;
-  }
-  body {
-    padding: 2mm 3mm;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 8.5pt;
-    line-height: 1.3;
-    color: #000;
-    display: inline-block;
-  }
+  html, body { width: 90mm; height: 29mm; overflow: hidden; background: white; display: inline-block; }
+  body { padding: 2mm 3mm; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.35; color: #000; }
   p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style></head><body>
-${lines.map((l) => `<p>${l}</p>`).join("")}
+${lines.map(l => `<p>${l}</p>`).join("")}
 <script>setTimeout(function(){window.print();},150);<\/script>
 </body></html>`);
     win.document.close();
   }
+
 
   function exportSkeddaCSV() {
     if (!t) return;

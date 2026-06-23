@@ -202,11 +202,15 @@ export function buildInductionEmailHtml(params: {
   const firstName = name.split(" ")[0];
   const branchList = branches.join(" and ");
   const stlBullet = stlRequired
-    ? `<li>Evidence of a special treatment licence or membership of an exempt organisation</li>`
+    ? `<li>Evidence of a special treatment licence or membership of an organisation with an exemption</li>`
     : "";
+  const accessItems: string[] = [];
+  if (branches.some(b => b.toLowerCase().includes("surbiton"))) accessItems.push("key");
+  if (branches.some(b => b.toLowerCase().includes("wimbledon"))) accessItems.push("fob");
+  const accessPhrase = accessItems.join(" and ") || "key";
   const keyLine = keyCardAlreadyIssued
     ? `Once we've received these, we can arrange access to our online room booking system.`
-    : `Once we've received these, we can arrange access to our online room booking system and arrange to get a ${branches.includes("South Wimbledon") ? "fob" : "key"} to you.`;
+    : `Once we've received these, we can arrange access to our online room booking system and arrange to get a ${accessPhrase} to you.`;
   return `
 <p>Dear ${firstName},</p>
 
@@ -258,60 +262,20 @@ export async function sendInductionEmail(params: {
   keyCardAlreadyIssued: boolean;
   attachments: Attachment[];
 }): Promise<void> {
-  const { name, branches, skill, stlStatus, stlRequired, keyCardAlreadyIssued } = params;
+  const { name, branches, stlRequired, keyCardAlreadyIssued } = params;
   const firstName = name.split(" ")[0];
   const branchList = branches.join(" and ");
 
-  const stlBullet = stlRequired
-    ? `<li>Evidence of a special treatment licence or membership of an exempt organisation</li>`
-    : "";
+  const accessItems: string[] = [];
+  if (branches.some(b => b.toLowerCase().includes("surbiton"))) accessItems.push("key");
+  if (branches.some(b => b.toLowerCase().includes("wimbledon"))) accessItems.push("fob");
+  const accessPhrase = accessItems.join(" and ") || "key";
 
   const keyLine = keyCardAlreadyIssued
     ? `Once we've received these, we can arrange access to our online room booking system.`
-    : `Once we've received these, we can arrange access to our online room booking system and arrange to get a ${branches.includes("South Wimbledon") ? "fob" : "key"} to you.`;
+    : `Once we've received these, we can arrange access to our online room booking system and arrange to get a ${accessPhrase} to you.`;
 
   const html = buildInductionEmailHtml({ name, branches, stlRequired, keyCardAlreadyIssued });
-  void firstName; void branchList; void stlBullet; void keyLine; void skill; void stlStatus;
-
-  const html2 = `
-<p>Dear ${firstName},</p>
-
-<p>I enclose our Terms of Agreement and associated induction documents for your review; if you are happy with this I would be grateful if you could sign, scan and return this to us by email. Please could you also provide us with a copy of the following:</p>
-
-<ul>
-  <li>Professional indemnity insurance</li>
-  <li>Evidence of professional accreditation</li>
-  <li>Photographic ID, either passport or driving licence</li>
-  <li>A utility bill from the past three months as proof of address</li>
-  ${stlBullet}
-</ul>
-
-<p>${keyLine}</p>
-
-<p>We have agreed that we will license you to use rooms in ${branchList}. Room charges are shown in the attached induction document.</p>
-
-<p>Payment will be taken by direct debit at the end of each month. We will email you a link to set up the direct debit; we use GoCardless as our service provider and all payments are of course covered by the direct debit guarantee. We use an online room booking system and therapists are provided with a username and password for managing booking details.</p>
-
-<p>Please let me know if you have any questions and we look forward to welcoming you to the clinic.</p>
-
-<p>Best regards,<br/>
-<strong>Peter Strong</strong><br/>
-Director</p>
-
-<table cellpadding="0" cellspacing="0" border="0" style="margin-top:16px">
-  <tr>
-    <td style="padding-right:12px;vertical-align:middle">
-      <img src="https://admin.therapyspaces.co.uk/logo.jpg" alt="Therapy Spaces" width="48" style="display:block"/>
-    </td>
-    <td style="vertical-align:middle;font-family:Arial,sans-serif;font-size:13px;color:#444">
-      <strong style="color:#222">Therapy Spaces</strong><br/>
-      t: 07710 132 221<br/>
-      e: <a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
-      w: <a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
-    </td>
-  </tr>
-</table>
-`;
 
   const text = `Dear ${firstName},
 
@@ -320,7 +284,7 @@ I enclose our Terms of Agreement and associated induction documents for your rev
 - Professional indemnity insurance
 - Evidence of professional accreditation
 - Photographic ID, either passport or driving licence
-- A utility bill from the past three months as proof of address${stlRequired ? "\n- Evidence of a special treatment licence or membership of an exempt organisation" : ""}
+- A utility bill from the past three months as proof of address${stlRequired ? "\n- Evidence of a special treatment licence or membership of an organisation with an exemption" : ""}
 
 ${keyLine}
 
@@ -343,7 +307,7 @@ w: www.therapyspaces.co.uk`;
     await sendViaResendWithAttachments({
       to: params.to,
       subject: "Therapy Spaces Induction Pack",
-      html: html2,
+      html,
       text,
       attachments: params.attachments,
     });

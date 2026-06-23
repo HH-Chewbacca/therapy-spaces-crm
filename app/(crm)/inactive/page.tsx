@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
   companyName: string | null; skill: string | null; flag: boolean;
-  isActive: boolean; depositInvoicedDate: string | null;
+  isActive: boolean; depositInvoicedDate: string | null; createdAt: string;
   organisation: { id: string; name: string } | null;
   primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
@@ -36,7 +36,14 @@ export default function InactivePage() {
     const q = search ? `?search=${encodeURIComponent(search)}` : "";
     const r = await fetch(`/api/therapists${q}`);
     const d = await r.json();
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => !t.isActive));
+    const list = (d.therapists ?? []).filter((t: Therapist) => !t.isActive);
+    // Sort by most recently active: depositInvoicedDate desc, then createdAt desc
+    list.sort((a: Therapist, b: Therapist) => {
+      const aDate = a.depositInvoicedDate ?? a.createdAt;
+      const bDate = b.depositInvoicedDate ?? b.createdAt;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+    setTherapists(list);
     setLoading(false);
   }, [search]);
 

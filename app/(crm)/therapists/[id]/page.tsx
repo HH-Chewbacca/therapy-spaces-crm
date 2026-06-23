@@ -249,49 +249,43 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
       t.address3,
       t.postcode,
       t.county,
-    ].filter(Boolean).join("\n");
+    ].filter(Boolean);
 
-    const win = window.open("", "_blank", "width=500,height=400");
+    const win = window.open("", "_blank", "width=400,height=300");
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Label - ${t.name}</title>
+    // Brother QL-800: 89mm wide x 36mm tall, fed landscape
+    // Font size tuned so ~5 lines fit in 36mm height
+    win.document.write(`<!DOCTYPE html><html><head><title>Label</title>
 <style>
   @page {
+    size: 89mm 36mm;
     margin: 0;
-    size: 89mm 36mm landscape;
   }
-  * { box-sizing: border-box; }
-  html, body {
+  html {
     width: 89mm;
     height: 36mm;
     margin: 0;
     padding: 0;
-    background: white;
   }
   body {
-    padding: 3mm 4mm;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 10pt;
-    line-height: 1.35;
-    color: #000;
-  }
-  pre {
+    width: 89mm;
+    height: 36mm;
     margin: 0;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
-    white-space: pre-wrap;
-    word-break: break-word;
+    padding: 2.5mm 3mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    line-height: 1.25;
+    color: #000;
+    overflow: hidden;
   }
+  p { margin: 0; padding: 0; }
   @media print {
-    html, body { width: 89mm; height: 36mm; }
+    body { width: 89mm; height: 36mm; }
   }
-</style></head><body><pre>${lines}</pre>
-<script>
-  window.onload = function() {
-    // Small delay to ensure rendering before print dialog
-    setTimeout(function() { window.print(); }, 200);
-  };
-<\/script></body></html>`);
+</style></head><body>
+${lines.map((l: string) => `<p>${l}</p>`).join("")}
+<script>setTimeout(function(){window.print();},150);<\/script>
+</body></html>`);
     win.document.close();
   }
 

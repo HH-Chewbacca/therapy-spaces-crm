@@ -19,7 +19,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ therapist });
 }
 
-// Explicit allowlist of scalar User fields safe to update
 const ALLOWED_FIELDS = new Set([
   "name","email","phone","isActive","companyName","skill","notes","referredBy","flag",
   "address1","address2","address3","address4","postcode","county","country",
@@ -36,6 +35,18 @@ const ALLOWED_FIELDS = new Set([
   "organisationId","documentsUrl","fanvilCardId",
 ]);
 
+const DATE_FIELDS = new Set([
+  "viewingDate","documentPackDate","documentReviewDate","bookingSystemInvitedAt",
+  "keyGivenDate","keySentDate","depositInvoicedDate",
+]);
+
+// Ensure date-only strings (YYYY-MM-DD) become full ISO-8601 datetimes
+function normaliseDate(v: unknown): unknown {
+  if (typeof v !== "string" || v === "") return v === "" ? null : v;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v + "T00:00:00.000Z";
+  return v;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -50,10 +61,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { locationIds, ...rest } = body;
 
-  // Only pass explicitly allowed scalar fields to Prisma
   const fields: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(rest)) {
-    if (ALLOWED_FIELDS.has(k)) fields[k] = v;
+    if (!ALLOWED_FIELDS.has(k)) continue;
+    fields[k] = DATE_FIELDS.has(k) ? normaliseDate(v) : v;
   }
 
   if (fields.email) {

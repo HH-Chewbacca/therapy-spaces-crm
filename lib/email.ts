@@ -198,6 +198,7 @@ export async function sendInductionEmail(params: {
   branches: string[]; // e.g. ["Surbiton"] or ["South Wimbledon"] or both
   skill: string | null;
   stlStatus: string | null;
+  stlRequired: boolean;
   keyCardAlreadyIssued: boolean;
   attachments: Attachment[];
 }): Promise<void> {
@@ -205,7 +206,7 @@ export async function sendInductionEmail(params: {
   const firstName = name.split(" ")[0];
   const branchList = branches.join(" and ");
 
-  const stlBullet = (stlStatus === "STL held" || stlStatus === "Exempt")
+  const stlBullet = stlRequired
     ? `<li>Evidence of a special treatment licence or membership of an exempt organisation</li>`
     : "";
 
@@ -260,7 +261,7 @@ I enclose our Terms of Agreement and associated induction documents for your rev
 - Professional indemnity insurance
 - Evidence of professional accreditation
 - Photographic ID, either passport or driving licence
-- A utility bill from the past three months as proof of address${stlBullet ? "\n- Evidence of a special treatment licence or membership of an exempt organisation" : ""}
+- A utility bill from the past three months as proof of address${stlRequired ? "\n- Evidence of a special treatment licence or membership of an exempt organisation" : ""}
 
 ${keyLine}
 

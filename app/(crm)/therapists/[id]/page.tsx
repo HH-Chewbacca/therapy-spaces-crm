@@ -256,6 +256,32 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
     const qz = (window as any).qz;
     if (qz) {
       try {
+        // Set up certificate + signing so QZ Tray trusts this site
+        qz.security.setCertificatePromise((_resolve: (v: string) => void, reject: (e: unknown) => void) => {
+          fetch("/api/qz/sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ request: "" }),
+          })
+            .then(r => r.json())
+            .then(d => _resolve(d.certificate))
+            .catch(reject);
+        });
+
+        qz.security.setSignatureAlgorithm("SHA512");
+        qz.security.setSignaturePromise((toSign: string) => {
+          return (_resolve: (v: string) => void, reject: (e: unknown) => void) => {
+            fetch("/api/qz/sign", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ request: toSign }),
+            })
+              .then(r => r.json())
+              .then(d => _resolve(d.signature))
+              .catch(reject);
+          };
+        });
+
         await qz.websocket.connect();
         const printer = await qz.printers.find("Brother QL-800");
         const config = qz.configs.create(printer, {
@@ -267,8 +293,8 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
         const html = `<html><body style="margin:2mm 3mm;font-family:Arial,sans-serif;font-size:9pt;line-height:1.3">
           ${lines.map(l => `<p style="margin:0">${l}</p>`).join("")}
         </body></html>`;
-        const data = [{ type: "pixel", format: "html", flavor: "plain", data: html }];
-        await qz.print(config, data);
+        const printData = [{ type: "pixel", format: "html", flavor: "plain", data: html }];
+        await qz.print(config, printData);
         await qz.websocket.disconnect();
         return;
       } catch (e) {

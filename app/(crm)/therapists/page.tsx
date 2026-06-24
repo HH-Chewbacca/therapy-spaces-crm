@@ -82,7 +82,7 @@ export default function TherapistsPage() {
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.email}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.skill ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{branches(t)}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{branches(t)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.organisation?.name ?? "—"}</td>
                 </tr>
               ))}

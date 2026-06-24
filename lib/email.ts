@@ -67,12 +67,45 @@ export async function sendInviteEmail(params: {
   name: string;
   inviteUrl: string;
 }): Promise<void> {
-  await sendEmail({
-    to: params.to,
-    subject: "You've been invited to set up your booking account",
-    text: `Hi ${params.name},\n\nAn account has been created for you. Set your password here:\n${params.inviteUrl}\n\nThis link expires in 7 days.`,
-    html: `<p>Hi ${params.name},</p><p>An account has been created for you. Set your password using the link below:</p><p><a href="${params.inviteUrl}">${params.inviteUrl}</a></p><p>This link expires in 7 days.</p>`,
-  });
+  const firstName = params.name.split(" ")[0];
+
+  const html = `<p>Hi ${firstName},</p>
+<p>An account has been created for you on our online room booking system. Please use the link below to set your password and complete your registration:</p>
+<p><a href="${params.inviteUrl}">${params.inviteUrl}</a></p>
+<p>This link expires in 7 days.</p>
+
+${buildSignatureHtml("cid:tslogo")}`;
+
+  const text = `Hi ${firstName},
+
+An account has been created for you on our online room booking system. Set your password using the link below to complete your registration:
+${params.inviteUrl}
+
+This link expires in 7 days.
+
+Best regards,
+Peter Strong
+Managing Director
+Therapy Spaces
+t: 07710 132 221
+e: enquiries@therapyspaces.co.uk
+w: www.therapyspaces.co.uk`;
+
+  const provider = process.env.EMAIL_PROVIDER;
+  if (provider === "resend" && process.env.RESEND_API_KEY) {
+    await sendViaResendWithAttachments({
+      to: params.to,
+      subject: "You've been invited to set up your booking account",
+      html,
+      text,
+      attachments: [{ filename: "logo.jpg", content: LOGO_BASE64, content_id: "tslogo" }],
+    });
+  } else {
+    console.log("---- INVITE EMAIL (dev mode) ----");
+    console.log("To:", params.to);
+    console.log(text);
+    console.log("---------------------------------");
+  }
 }
 
 export async function sendPasswordResetEmail(params: {
@@ -194,6 +227,21 @@ async function sendViaResendWithAttachments(params: SendEmailParams & { attachme
   }
 }
 
+export function buildSignatureHtml(logoSrc: string): string {
+  return `<p style="margin:0 0 16px 0">Best regards,</p>
+
+<p style="margin:0 0 16px 0"><strong>Peter Strong</strong><br/>
+Managing Director</p>
+
+<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#444">
+  t:&nbsp;&nbsp;07710 132 221<br/>
+  e:&nbsp;&nbsp;<a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
+  w:&nbsp;&nbsp;<a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
+</p>
+
+<img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin:0"/>`;
+}
+
 export function buildInductionEmailHtml(params: {
   name: string;
   branches: string[];
@@ -236,18 +284,7 @@ export function buildInductionEmailHtml(params: {
 
 <p>Please let me know if you have any questions and we look forward to welcoming you to the clinic.</p>
 
-<p style="margin:0 0 16px 0">Best regards,</p>
-
-<p style="margin:0 0 16px 0"><strong>Peter Strong</strong><br/>
-Managing Director</p>
-
-<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#444">
-  t:&nbsp;&nbsp;07710 132 221<br/>
-  e:&nbsp;&nbsp;<a href="mailto:enquiries@therapyspaces.co.uk">enquiries@therapyspaces.co.uk</a><br/>
-  w:&nbsp;&nbsp;<a href="https://www.therapyspaces.co.uk">www.therapyspaces.co.uk</a>
-</p>
-
-<img src="${logoSrc}" alt="Therapy Spaces" width="200" style="display:block;margin:0"/>
+${buildSignatureHtml(logoSrc)}
 `;
 }
 

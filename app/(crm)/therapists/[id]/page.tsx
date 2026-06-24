@@ -551,22 +551,21 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
 
       {/* Organisation & Billing */}
       <Section title="Organisation & Billing">
-        {/* Branch selector */}
-        <div>
-          <Label>Authorised branches</Label>
-          <div className="flex gap-3 mt-1">
-            {locations.map(loc => (
-              <label key={loc.id} className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                <input type="checkbox"
-                  checked={selectedLocationIds.includes(loc.id)}
-                  onChange={() => toggleLocation(loc.id)}
-                  className="h-4 w-4 rounded border-border text-primary" />
-                {abbrevBranch(loc.name)}
-              </label>
-            ))}
-          </div>
-        </div>
         <div className="grid grid-cols-2 gap-4">
+          {/* Branch selector — sits in the grid so it flows with the other fields */}
+          <F label="Branch">
+            <div className="flex gap-5 mt-1">
+              {locations.map(loc => (
+                <label key={loc.id} className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                  <input type="checkbox"
+                    checked={selectedLocationIds.includes(loc.id)}
+                    onChange={() => toggleLocation(loc.id)}
+                    className="h-4 w-4 rounded border-border text-primary" />
+                  {abbrevBranch(loc.name)}
+                </label>
+              ))}
+            </div>
+          </F>
           <F label="Organisation">
             <Select value={t.organisationId ?? ""} onChange={e => update("organisationId", e.target.value || null)}>
               <option value="">— None (individual) —</option>

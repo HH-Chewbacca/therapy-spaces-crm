@@ -263,10 +263,12 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
   }
 
   async function sendInvite() {
-    if (!t || !confirm(`Send booking system invite to ${t.email}?`)) return;
+    if (!t) return;
+    const isResend = !!t.bookingSystemInvitedAt;
+    if (!confirm(`${isResend ? "Resend" : "Send"} booking system invite to ${t.email}?`)) return;
     setInviting(true); setMsg(null);
     const res = await fetch(`/api/therapists/${t.id}/invite`, { method: "POST" });
-    if (res.ok) { setMsg({ text: "Invite sent.", type: "success" }); await load(); }
+    if (res.ok) { setMsg({ text: isResend ? "Invite resent." : "Invite sent.", type: "success" }); await load(); }
     else { const d = await res.json(); setMsg({ text: d.error ?? "Error sending invite", type: "error" }); }
     setInviting(false);
   }
@@ -390,11 +392,9 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
             </a>
           )}
           <Button variant="secondary" size="sm" onClick={printAddressLabel}>🏷 Label</Button>
-          {!t.bookingSystemInvitedAt && (
-            <Button variant="secondary" size="sm" onClick={sendInvite} disabled={inviting}>
-              {inviting ? "Sending…" : "Send invite"}
-            </Button>
-          )}
+          <Button variant="secondary" size="sm" onClick={sendInvite} disabled={inviting}>
+            {inviting ? "Sending…" : (t.bookingSystemInvitedAt ? "Resend invite" : "Booking system invite")}
+          </Button>
           {!complete && (
             <Button variant="secondary" size="sm" onClick={previewInductionPack} disabled={previewLoading || sendingInduction}>
               {previewLoading ? "Loading…" : "📋 Induction pack"}
@@ -465,12 +465,10 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
                 <p className="text-xs font-medium text-muted-foreground mb-1">Booking system invited</p>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-foreground">{t.bookingSystemInvitedAt ? new Date(t.bookingSystemInvitedAt).toLocaleDateString("en-GB") : "Not yet sent"}</span>
-                  {!t.bookingSystemInvitedAt && (
-                    <button onClick={sendInvite} disabled={inviting}
-                      className="text-xs px-2 py-1 rounded-[var(--radius)] bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50">
-                      {inviting ? "Sending…" : "Send invite"}
-                    </button>
-                  )}
+                  <button onClick={sendInvite} disabled={inviting}
+                    className="text-xs px-2 py-1 rounded-[var(--radius)] bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50">
+                    {inviting ? "Sending…" : (t.bookingSystemInvitedAt ? "Resend invite" : "Send invite")}
+                  </button>
                 </div>
               </div>
             </div>

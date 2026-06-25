@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, Alert } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { DialButton } from "@/components/ui/DialButton";
+import { MailButton } from "@/components/ui/MailButton";
 import { formatPhone } from "@/lib/phone";
 
 interface Organisation { id: string; name: string; }
@@ -393,7 +394,7 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
               <Button variant="secondary" size="sm">📁 Documents</Button>
             </a>
           )}
-          <Button variant="secondary" size="sm" onClick={printAddressLabel}>🏷 Label</Button>
+          <Button variant="secondary" size="sm" onClick={printAddressLabel}>🏷 Address Label</Button>
           <Button variant="secondary" size="sm" onClick={sendInvite} disabled={inviting}>
             {inviting ? "Sending…" : (t.bookingSystemInvitedAt ? "Resend invite" : "Booking system invite")}
           </Button>
@@ -509,7 +510,12 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
       <Section title="Contact">
         <div className="grid grid-cols-2 gap-4">
           <F label="Name"><Input value={t.name} onChange={e => update("name", e.target.value)} /></F>
-          <F label="Email"><Input type="email" value={t.email} onChange={e => update("email", e.target.value)} /></F>
+          <F label="Email">
+            <div className="flex items-center gap-2">
+              <div className="flex-1"><Input type="email" value={t.email} onChange={e => update("email", e.target.value)} /></div>
+              <MailButton email={t.email} />
+            </div>
+          </F>
           <F label="Phone">
             <div className="flex items-center gap-2">
               <div className="flex-1">
@@ -623,7 +629,12 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
             <F label="Company"><Input value={t.invoiceCompanyName ?? ""} onChange={e => update("invoiceCompanyName", e.target.value)} /></F>
             <F label="First name"><Input value={t.invoiceFirstName ?? ""} onChange={e => update("invoiceFirstName", e.target.value)} /></F>
             <F label="Surname"><Input value={t.invoiceSurName ?? ""} onChange={e => update("invoiceSurName", e.target.value)} /></F>
-            <F label="Email"><Input type="email" value={t.invoiceEmailAddress ?? ""} onChange={e => update("invoiceEmailAddress", e.target.value)} /></F>
+            <F label="Email">
+            <div className="flex items-center gap-2">
+              <div className="flex-1"><Input type="email" value={t.invoiceEmailAddress ?? ""} onChange={e => update("invoiceEmailAddress", e.target.value)} /></div>
+              <MailButton email={t.invoiceEmailAddress} />
+            </div>
+          </F>
             <F label="Address 1"><Input value={t.invoiceAddress1 ?? ""} onChange={e => update("invoiceAddress1", e.target.value)} /></F>
             <F label="Address 2"><Input value={t.invoiceAddress2 ?? ""} onChange={e => update("invoiceAddress2", e.target.value)} /></F>
             <F label="Town"><Input value={t.invoiceAddress3 ?? ""} onChange={e => update("invoiceAddress3", e.target.value)} /></F>

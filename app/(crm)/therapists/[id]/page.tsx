@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, Alert } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
+import { DialButton } from "@/components/ui/DialButton";
+import { formatPhone } from "@/lib/phone";
 
 interface Organisation { id: string; name: string; }
 interface Location { id: string; name: string; }
@@ -508,7 +510,18 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
         <div className="grid grid-cols-2 gap-4">
           <F label="Name"><Input value={t.name} onChange={e => update("name", e.target.value)} /></F>
           <F label="Email"><Input type="email" value={t.email} onChange={e => update("email", e.target.value)} /></F>
-          <F label="Phone"><Input value={t.phone ?? ""} onChange={e => update("phone", e.target.value)} /></F>
+          <F label="Phone">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Input
+                  value={t.phone ?? ""}
+                  onChange={e => update("phone", e.target.value)}
+                  onBlur={e => { const f = formatPhone(e.target.value); if (f && f !== (t.phone ?? "")) update("phone", f); }}
+                />
+              </div>
+              <DialButton phone={t.phone} />
+            </div>
+          </F>
           <F label="Company name"><Input value={t.companyName ?? ""} onChange={e => update("companyName", e.target.value)} /></F>
           <div>
             <Label>Skill / therapy type</Label>

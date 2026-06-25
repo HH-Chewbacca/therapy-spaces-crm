@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { MailButton } from "@/components/ui/MailButton";
 
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
@@ -81,7 +82,7 @@ export default function InactivePage() {
                       {t.companyName && <span className="text-muted-foreground font-normal ml-1">({t.companyName})</span>}
                     </Link>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{t.email}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground"><span className="inline-flex items-center gap-2">{t.email}<MailButton email={t.email} className="h-7 w-7" /></span></td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.skill ?? "—"}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{branches(t)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.organisation?.name ?? "—"}</td>

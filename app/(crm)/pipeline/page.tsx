@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card, Alert } from "@/components/ui/Card";
+import { DialButton } from "@/components/ui/DialButton";
+import { formatPhone } from "@/lib/phone";
 
 interface Therapist {
   id: string; name: string; email: string; phone: string | null; flag: boolean;
@@ -216,7 +218,14 @@ export default function PipelinePage() {
                       {cfg.label}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{t.phone ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                    {t.phone ? (
+                      <span className="inline-flex items-center gap-2">
+                        {formatPhone(t.phone)}
+                        <DialButton phone={t.phone} />
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{lastAction(t)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">
                     {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}

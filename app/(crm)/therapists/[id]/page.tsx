@@ -545,8 +545,6 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
             </div>
           </div>
           <F label="Website"><Input type="url" placeholder="https://…" value={t.website ?? ""} onChange={e => update("website", e.target.value)} /></F>
-          <F label="Clinic telephone"><Input value={t.clinicTelephone ?? ""} onChange={e => update("clinicTelephone", e.target.value)} /></F>
-          <F label="Clinic email"><Input type="email" value={t.clinicEmail ?? ""} onChange={e => update("clinicEmail", e.target.value)} /></F>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <F label="Address line 1"><Input value={t.address1 ?? ""} onChange={e => update("address1", e.target.value)} /></F>
@@ -586,7 +584,6 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
             </Select>
           </F>
           <F label="Key card / fob number"><Input value={t.keyCard ?? ""} onChange={e => update("keyCard", e.target.value)} /></F>
-          <F label="Fanvil card ID"><Input value={t.fanvilCardId ?? ""} onChange={e => update("fanvilCardId", e.target.value)} /></F>
           <F label="Referred by">
             <Select value={t.referredBy ?? ""} onChange={e => update("referredBy", e.target.value || null)}>
               <option value="">— Not set —</option>

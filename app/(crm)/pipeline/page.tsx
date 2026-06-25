@@ -34,7 +34,7 @@ function getStage(t: Therapist): Stage {
   if (t.bookingSystemInvitedAt) return "Invited";
   if (t.documentReviewDate) return "Docs reviewed";
   if (t.documentPackDate) return "Pack sent";
-  if (t.viewingDate) return "Viewed";
+  if (t.viewingDate && new Date(t.viewingDate).getTime() <= Date.now()) return "Viewed";
   return "Enquiry";
 }
 
@@ -48,7 +48,9 @@ function daysSince(d: string | null): number | null {
 }
 
 function lastAction(t: Therapist): string {
-  const d = t.keySentDate ?? t.keyGivenDate ?? t.bookingSystemInvitedAt ?? t.documentReviewDate ?? t.documentPackDate ?? t.viewingDate;
+  const pastViewing =
+    t.viewingDate && new Date(t.viewingDate).getTime() <= Date.now() ? t.viewingDate : null;
+  const d = t.keySentDate ?? t.keyGivenDate ?? t.bookingSystemInvitedAt ?? t.documentReviewDate ?? t.documentPackDate ?? pastViewing;
   const n = daysSince(d);
   if (n === null) return "—";
   if (n === 0) return "Today";

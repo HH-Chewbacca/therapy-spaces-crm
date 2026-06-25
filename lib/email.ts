@@ -15,6 +15,7 @@ import { LOGO_DATA_URI, LOGO_BASE64 } from "./logo";
 
 interface SendEmailParams {
   to: string;
+  bcc?: string;
   subject: string;
   html: string;
   text: string;
@@ -212,6 +213,7 @@ async function sendViaResendWithAttachments(params: SendEmailParams & { attachme
     html: params.html,
     text: params.text,
   };
+  if (params.bcc) body.bcc = params.bcc;
   if (params.attachments?.length) {
     body.attachments = params.attachments.map(a => a.content_id ? { filename: a.filename, content: a.content, content_id: a.content_id } : { filename: a.filename, content: a.content });
   }
@@ -346,6 +348,7 @@ w: www.therapyspaces.co.uk`;
   if (provider === "resend" && process.env.RESEND_API_KEY) {
     await sendViaResendWithAttachments({
       to: params.to,
+      bcc: "enquiries@therapyspaces.co.uk",
       subject: "Therapy Spaces Induction Pack",
       html,
       text,

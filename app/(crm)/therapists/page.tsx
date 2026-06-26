@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MailButton } from "@/components/ui/MailButton";
+import { BookingsLink } from "@/components/ui/BookingsLink";
 import { PersonSearchResults } from "@/components/PersonSearchResults";
 
 interface Therapist {
@@ -74,6 +75,7 @@ export default function TherapistsPage() {
                 <th className="px-4 py-3">Skill</th>
                 <th className="px-4 py-3">Branch</th>
                 <th className="px-4 py-3">Organisation</th>
+                <th className="px-4 py-3">Bookings</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -90,10 +92,11 @@ export default function TherapistsPage() {
                   <td className="px-4 py-2.5 text-muted-foreground">{t.skill ?? "—"}</td>
                   <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{branches(t)}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{t.organisation?.name ?? "—"}</td>
+                  <td className="px-4 py-2.5"><BookingsLink userId={t.id} /></td>
                 </tr>
               ))}
               {therapists.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No therapists found</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No therapists found</td></tr>
               )}
             </tbody>
           </table>

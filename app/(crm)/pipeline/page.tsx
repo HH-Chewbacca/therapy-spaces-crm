@@ -157,7 +157,7 @@ export default function PipelinePage() {
       </div>
 
       {/* Search + email drop zone, side by side to save space */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
       <input type="search" placeholder="Search by name, email, skill or phone…"
         value={search} onChange={e => setSearch(e.target.value)}
         className="w-full max-w-md rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary" />
@@ -165,11 +165,10 @@ export default function PipelinePage() {
       {/* Email drop zone */}
       <div onDragOver={e => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)} onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center text-center rounded-[var(--radius)] border-2 border-dashed p-3 transition-colors w-full sm:w-80 sm:shrink-0 ${dragging ? "border-primary bg-green-50" : "border-border bg-surface"}`}>
+        className={`flex flex-col items-center justify-center text-center rounded-[var(--radius)] border-2 border-dashed px-3 py-1.5 transition-colors w-full sm:w-80 sm:shrink-0 sm:ml-auto ${dragging ? "border-primary bg-green-50" : "border-border bg-surface"}`}>
         {parsing ? <p className="text-muted-foreground text-sm">Parsing email…</p> : (
           <>
-            <p className="text-sm text-foreground font-medium">Drop a <code className="bg-surface-muted px-1 rounded text-xs">.msg</code> viewing-request to import an enquiry</p>
-            <p className="text-xs text-muted-foreground mt-1">Web3Forms format — fields parsed automatically</p>
+            <p className="text-xs text-foreground font-medium">Drop a <code className="bg-surface-muted px-1 rounded text-xs">.msg</code> viewing-request to import an enquiry</p>
           </>
         )}
       </div>

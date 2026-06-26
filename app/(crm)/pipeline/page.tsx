@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, Alert } from "@/components/ui/Card";
 import { DialButton } from "@/components/ui/DialButton";
 import { formatPhone } from "@/lib/phone";
+import { BookingsLink } from "@/components/ui/BookingsLink";
 
 interface Therapist {
   id: string; name: string; email: string; phone: string | null; flag: boolean;
@@ -242,11 +243,12 @@ export default function PipelinePage() {
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">
                     {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}
                   </td>
+                  <td className="px-4 py-2.5"><BookingsLink userId={t.id} /></td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                 {search ? "No results found" : "No therapists in the pipeline"}
               </td></tr>
             )}

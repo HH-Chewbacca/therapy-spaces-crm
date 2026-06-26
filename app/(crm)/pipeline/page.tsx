@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PersonSearchResults } from "@/components/PersonSearchResults";
 import { Button } from "@/components/ui/Button";
 import { Card, Alert } from "@/components/ui/Card";
 import { DialButton } from "@/components/ui/DialButton";
@@ -61,6 +62,7 @@ function lastAction(t: Therapist): string {
 export default function PipelinePage() {
   const router = useRouter();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [all, setAll] = useState<Therapist[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [dragging, setDragging] = useState(false);
@@ -72,7 +74,9 @@ export default function PipelinePage() {
   const load = useCallback(async () => {
     const r = await fetch("/api/therapists");
     const d = await r.json();
-    const list = (d.therapists ?? []).filter((t: Therapist) => t.isActive && !graduated(t));
+    const active = (d.therapists ?? []).filter((t: Therapist) => t.isActive);
+    setAll(active);
+    const list = active.filter((t: Therapist) => !graduated(t));
     list.sort((a: Therapist, b: Therapist) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     setTherapists(list);
     setLoading(false);
@@ -90,6 +94,8 @@ export default function PipelinePage() {
           || (t.phone ?? "").includes(q);
       })
     : therapists;
+
+  const searching = search.trim().length > 0;
 
   async function handleDrop(e: React.DragEvent) {
     e.preventDefault(); setDragging(false); setError(null);
@@ -128,7 +134,7 @@ export default function PipelinePage() {
         <h1 className="text-xl font-semibold text-foreground">Pipeline</h1>
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">
-            {filtered.length}{search ? ` of ${therapists.length}` : ""} in progress
+            {therapists.length} in progress
           </p>
           <Link href="/therapists/new"><Button>+ New therapist</Button></Link>
         </div>
@@ -188,7 +194,10 @@ export default function PipelinePage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {/* Flat table sorted by createdAt desc */}
+      {/* Search results (both lists) when searching, else the pipeline table */}
+      {searching ? (
+        <PersonSearchResults people={all} query={search} />
+      ) : (
       <Card className="p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-surface-muted text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -243,6 +252,7 @@ export default function PipelinePage() {
           </tbody>
         </table>
       </Card>
+      )}
     </div>
   );
 }

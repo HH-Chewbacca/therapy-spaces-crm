@@ -351,15 +351,46 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
   }
 
 
-  function exportSkeddaCSV() {
+  async function exportSkeddaCSV() {
     if (!t) return;
-    const rows = [["Name","Email","Amount","Description"],[t.name,t.email,"20.00","Key deposit"]];
-    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    if (!(await ensureSaved("deposit"))) return;
+    if (!window.confirm("The invoice number is left blank in this file \u2014 remember to set it in Xero after importing. Generate the CSV now?")) return;
+
+    const parts = (t.name || "").trim().split(/\s+/).filter(Boolean);
+    const firstName = parts[0] ?? "";
+    const lastName = parts.slice(1).join(" ");
+
+    const fmt = (dt: Date) =>
+      `${String(dt.getDate()).padStart(2, "0")}-${dt.toLocaleString("en-GB", { month: "short" })}-${String(dt.getFullYear()).slice(-2)}`;
+    const invDate = new Date();
+    const due = new Date();
+    due.setDate(due.getDate() + 7);
+
+    const header = [
+      "*ContactName", "EmailAddress", "FirstName", "LastName",
+      "POAddressLine1", "POAddressLine2", "POAddressLine3", "POCity", "POPostalCode",
+      "*InvoiceNumber", "*InvoiceDate", "*DueDate", "Total",
+      "*Description", "*Quantity", "*UnitAmount", "*AccountCode", "*TaxType",
+    ];
+    const row = [
+      t.name, t.email ?? "", firstName, lastName,
+      t.address1 ?? "", t.address2 ?? "", t.county ?? "", t.address3 ?? "", t.postcode ?? "",
+      "", fmt(invDate), fmt(due), "20",
+      "Key Deposit", "1", "20", "260", "Exempt Income",
+    ];
+
+    const esc = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const csv = [header, row].map((r) => r.map((v) => esc(String(v))).join(",")).join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `skedda-deposit-${t.name.replace(/\s+/g,"-").toLowerCase()}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    a.href = url;
+    a.download = `key-deposit-${t.name.replace(/\s+/g, "-").toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (!t.depositInvoicedDate) update("depositInvoicedDate", today());
   }
 
   if (!t) return <p className="text-muted-foreground text-sm">Loading…</p>;

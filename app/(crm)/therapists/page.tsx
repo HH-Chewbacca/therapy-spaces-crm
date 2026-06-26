@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MailButton } from "@/components/ui/MailButton";
+import { PersonSearchResults } from "@/components/PersonSearchResults";
 
 interface Therapist {
   id: string; name: string; email: string; phone: string | null;
@@ -34,18 +35,20 @@ function isGraduated(t: Therapist): boolean {
 }
 
 export default function TherapistsPage() {
-  const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [all, setAll] = useState<Therapist[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const q = search ? `?search=${encodeURIComponent(search)}` : "";
-    const r = await fetch(`/api/therapists${q}`);
+    const r = await fetch(`/api/therapists`);
     const d = await r.json();
-    setTherapists((d.therapists ?? []).filter((t: Therapist) => t.isActive && isGraduated(t)));
+    setAll((d.therapists ?? []).filter((t: Therapist) => t.isActive));
     setLoading(false);
-  }, [search]);
+  }, []);
+
+  const searching = search.trim().length > 0;
+  const therapists = all.filter(isGraduated);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
@@ -59,7 +62,9 @@ export default function TherapistsPage() {
       <input type="search" placeholder="Search by name, email or company…"
         value={search} onChange={e => setSearch(e.target.value)}
         className="w-full max-w-md rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-primary" />
-      {loading ? <p className="text-muted-foreground text-sm">Loading…</p> : (
+      {loading ? <p className="text-muted-foreground text-sm">Loading…</p>
+        : searching ? <PersonSearchResults people={all} query={search} />
+        : (
         <Card className="p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface-muted text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">

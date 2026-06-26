@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, Alert } from "@/components/ui/Card";
 import { Input, Label, Select } from "@/components/ui/Input";
 import { DialButton } from "@/components/ui/DialButton";
+import { BookingsLink } from "@/components/ui/BookingsLink";
 import { MailButton } from "@/components/ui/MailButton";
 import { formatPhone } from "@/lib/phone";
 
@@ -426,6 +427,7 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
             </a>
           )}
           <Button variant="secondary" size="sm" onClick={printAddressLabel}>🏷 Address Label</Button>
+        <BookingsLink userId={t.id} />
           <Button variant="secondary" size="sm" onClick={sendInvite} disabled={inviting}>
             {inviting ? "Sending…" : (t.bookingSystemInvitedAt ? "Resend invite" : "Booking system invite")}
           </Button>

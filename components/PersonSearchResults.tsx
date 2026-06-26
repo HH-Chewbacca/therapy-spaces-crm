@@ -50,7 +50,7 @@ function Group({ title, rows }: { title: string; rows: SearchablePerson[] }) {
                 <tr key={p.id} className="hover:bg-surface-muted/50 transition-colors">
                   <td className="px-4 py-2.5 font-medium text-foreground">
                     <Link href={`/therapists/${p.id}`} className="hover:text-primary transition-colors">
-                      {p.flag && <span className="mr-1">\U0001F6A9</span>}
+                      {p.flag && <span className="mr-1">🚩</span>}
                       {p.name}
                       {p.companyName && (
                         <span className="text-muted-foreground font-normal ml-1">({p.companyName})</span>
@@ -58,7 +58,7 @@ function Group({ title, rows }: { title: string; rows: SearchablePerson[] }) {
                     </Link>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">{p.email}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{p.skill ?? "\u2014"}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{p.skill ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

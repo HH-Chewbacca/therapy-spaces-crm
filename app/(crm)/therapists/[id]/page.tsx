@@ -712,7 +712,7 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
               onChange={(e) => update("roomUseType", e.target.value || null)}
               className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground"
             >
-              <option value="">\u2014 not set \u2014</option>
+              <option value="">— not set —</option>
               <option value="Talking">Talking therapy</option>
               <option value="Manual">Manual therapy</option>
               <option value="Both">Both</option>

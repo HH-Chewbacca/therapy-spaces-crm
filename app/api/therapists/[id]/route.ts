@@ -32,7 +32,7 @@ const ALLOWED_FIELDS = new Set([
   "accreditationBody","accreditationNumber",
   "clinicTelephone","clinicEmail","website","clinicsDaysTimes","fees",
   "insuranceCompanies","bioText","showProfile","includeInBilling",
-  "organisationId","documentsUrl","fanvilCardId",
+  "organisationId","documentsUrl","fanvilCardId","roomUseType",
 ]);
 
 const DATE_FIELDS = new Set([

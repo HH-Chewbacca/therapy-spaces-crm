@@ -39,6 +39,7 @@ interface Therapist {
   organisation: Organisation | null;
   primaryBranch: { id: string; name: string } | null;
   authorisedLocations: { location: { id: string; name: string } }[];
+  roomUseType: string | null;
 }
 
 const REFERRAL_OPTIONS = ["Website", "UKTR", "Friend", "Walk In", "Other"];
@@ -150,6 +151,7 @@ export default function TherapistDetailPage({ params }: { params: Promise<{ id: 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [onboardingMsg, setOnboardingMsg] = useState<string | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(true);
   const [dirty, setDirty] = useState(false);
 
@@ -401,6 +403,77 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
     .map(lid => locations.find(l => l.id === lid)?.name ?? "")
     .filter(Boolean);
 
+  function buildOnboardingMessage(): string {
+    if (!t) return "";
+    const firstName = (t.name ?? "").trim().split(/\s+/)[0] || "there";
+    const postcode = t.postcode ?? "[postcode]";
+    const useType = t.roomUseType ?? "Both";
+    const branches = activeBranches.length ? activeBranches : ["South Wimbledon"];
+
+    const LAYOUT: Record<string, { manual: string[]; talking: string[]; dual: string[] }> = {
+      "South Wimbledon": { manual: ["Room 1", "Room 2", "Room 3"], talking: ["Room 4", "Room 5"], dual: [] },
+      "Surbiton": { manual: ["Room 3", "Room 4"], talking: ["Room 1"], dual: ["Room 2"] },
+    };
+    const ACCESS: Record<string, string> = { "South Wimbledon": "key", "Surbiton": "fob" };
+    const WHATSAPP: Record<string, string> = {
+      "South Wimbledon": "https://chat.whatsapp.com/C4BpPWq1uO8KGsw9ECkG1m",
+      "Surbiton": "https://chat.whatsapp.com/KR3r7LBS9HvLANPNOoTr8w",
+    };
+
+    const roomsFor = (branch: string): string[] => {
+      const lay = LAYOUT[branch];
+      if (!lay) return [];
+      let plain: string[] = [];
+      if (useType === "Manual") plain = lay.manual;
+      else if (useType === "Talking") plain = lay.talking;
+      else plain = [...lay.manual, ...lay.talking];
+      const all = [...plain, ...lay.dual.map((r) => `${r} (dual use)`)];
+      all.sort((a, b) => parseInt(a.match(/\d+/)?.[0] ?? "0", 10) - parseInt(b.match(/\d+/)?.[0] ?? "0", 10));
+      return all;
+    };
+
+    const listRooms = (rooms: string[]): string => {
+      if (rooms.length === 0) return "the rooms";
+      if (rooms.length === 1) return rooms[0];
+      return rooms.slice(0, -1).join(", ") + " and " + rooms[rooms.length - 1];
+    };
+
+    const roomSentences = branches
+      .map((b) => `Please book ${listRooms(roomsFor(b))} in ${b} when you need to.`)
+      .join(" ");
+
+    const accessWords = Array.from(new Set(branches.map((b) => ACCESS[b]).filter(Boolean)));
+    const accessText =
+      accessWords.length === 0
+        ? "key"
+        : accessWords.length === 1
+        ? accessWords[0]
+        : accessWords.slice(0, -1).join(", ") + " and " + accessWords[accessWords.length - 1];
+
+    const waLines = branches
+      .map(
+        (b) =>
+          `It would be great if you could join the ${b} WhatsApp group, as this is how we send out communications relating to the branch: ${WHATSAPP[b] ?? ""}`
+      )
+      .join("\n\n");
+
+    return [
+      `Many thanks ${firstName}, I've sent over an invite to our booking system so that you can make online bookings. ${roomSentences}`,
+      "",
+      `Shall I post a ${accessText} out to ${postcode}? There is a \u00A320 deposit for this and when you get the invoice for it, you will be prompted to set up the direct debit for this and future payments.`,
+      "",
+      waLines,
+      "",
+      "Finally, it would be great if you could add your profile to our therapist directory, as this will help people searching by branch to find you more easily and increase your visibility.",
+      "",
+      "You can add your profile here: https://therapistsearch.org",
+      "",
+      "Best regards,",
+      "",
+      "Peter",
+    ].join("\n");
+  }
+
   return (
     <div className="space-y-4 max-w-4xl">
       {/* Header */}
@@ -431,6 +504,7 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
           <Button variant="secondary" size="sm" onClick={sendInvite} disabled={inviting}>
             {inviting ? "Sending…" : (t.bookingSystemInvitedAt ? "Resend invite" : "Booking system invite")}
           </Button>
+          <Button variant="secondary" size="sm" onClick={() => setOnboardingMsg(buildOnboardingMessage())}>{"✉️ Booking & key message"}</Button>
           {!complete && (
             <Button variant="secondary" size="sm" onClick={previewInductionPack} disabled={previewLoading || sendingInduction}>
               {previewLoading ? "Loading…" : "📋 Induction pack"}
@@ -441,6 +515,36 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
         </div>
       </div>
 
+      {onboardingMsg !== null && (
+        <div className="mb-4 rounded-[var(--radius)] border border-border bg-surface-muted/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Booking &amp; key message</span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (onboardingMsg === null) return;
+                  try {
+                    await navigator.clipboard.writeText(onboardingMsg);
+                    setMsg({ text: "Message copied to clipboard", type: "success" });
+                  } catch {
+                    setMsg({ text: "Couldn't copy \u2014 select the text and copy manually", type: "error" });
+                  }
+                }}
+              >
+                Copy
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setOnboardingMsg(null)}>Close</Button>
+            </div>
+          </div>
+          <textarea
+            value={onboardingMsg}
+            onChange={(e) => setOnboardingMsg(e.target.value)}
+            rows={16}
+            className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground"
+          />
+        </div>
+      )}
       {msg && <Alert variant={msg.type === "error" ? "danger" : "success"}>{msg.text}</Alert>}
 
       {/* Onboarding — collapsible */}
@@ -602,6 +706,18 @@ ${lines.map(l => `<p>${l}</p>`).join("")}
       {/* Organisation & Billing */}
       <Section title="Organisation & Billing">
         <div className="grid grid-cols-2 gap-4">
+          <F label="Room type">
+            <select
+              value={t.roomUseType ?? ""}
+              onChange={(e) => update("roomUseType", e.target.value || null)}
+              className="w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-sm text-foreground"
+            >
+              <option value="">\u2014 not set \u2014</option>
+              <option value="Talking">Talking therapy</option>
+              <option value="Manual">Manual therapy</option>
+              <option value="Both">Both</option>
+            </select>
+          </F>
           {/* Branch selector — sits in the grid so it flows with the other fields */}
           <F label="Branch">
             <div className="flex gap-5 mt-1">

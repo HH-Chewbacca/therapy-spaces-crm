@@ -81,6 +81,7 @@ model User {
   keyGivenDate         DateTime?
   keySentDate          DateTime?
   keyCard              String?
+  roomUseType          String?   // "Talking" | "Manual" | "Both"
   depositInvoicedDate  DateTime?
 
   // Accreditation (reference only — no reminders)
